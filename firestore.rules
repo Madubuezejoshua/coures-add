@@ -1,0 +1,261 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/admin/$(request.auth.uid));
+    }
+
+    function isContributor() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/contributors/$(request.auth.uid));
+    }
+
+    function isReviewer() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/reviewers/$(request.auth.uid));
+    }
+
+    function isPublisher() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/publishers/$(request.auth.uid));
+    }
+
+    function getUserRole() {
+      return isAuthenticated() ?
+             (isAdmin() ? 'admin' :
+              isContributor() ? 'contributor' :
+              isReviewer() ? 'reviewer' :
+              isPublisher() ? 'publisher' : null) :
+             null;
+    }
+
+    function getUserData() {
+      return isAuthenticated() ?
+             (isContributor() ? get(/databases/$(database)/documents/contributors/$(request.auth.uid)).data :
+              isReviewer() ? get(/databases/$(database)/documents/reviewers/$(request.auth.uid)).data :
+              isPublisher() ? get(/databases/$(database)/documents/publishers/$(request.auth.uid)).data :
+              isAdmin() ? get(/databases/$(database)/documents/admin/$(request.auth.uid)).data : null) :
+             null;
+    }
+
+    function isUserSuspended() {
+      return isAuthenticated() && getUserData().status == 'suspended';
+    }
+
+    function isDocumentOwner(docData) {
+      return isAuthenticated() && docData.contributorId == request.auth.uid;
+    }
+
+    // Admin collection - only admin users can read/write
+    match /admin/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Contributors collection
+    match /contributors/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAdmin();
+
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == userId &&
+                       request.resource.data.keys().hasAll(['email', 'displayName', 'role', 'accessId', 'status', 'createdAt']) &&
+                       request.resource.data.role == 'contributor' &&
+                       request.resource.data.status == 'active';
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Reviewers collection
+    match /reviewers/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAdmin();
+
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == userId &&
+                       request.resource.data.keys().hasAll(['email', 'displayName', 'role', 'accessId', 'status', 'createdAt']) &&
+                       request.resource.data.role == 'reviewer' &&
+                       request.resource.data.status == 'active';
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Publishers collection
+    match /publishers/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAdmin();
+
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == userId &&
+                       request.resource.data.keys().hasAll(['email', 'displayName', 'role', 'accessId', 'status', 'createdAt']) &&
+                       request.resource.data.role == 'publisher' &&
+                       request.resource.data.status == 'active';
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Generated IDs collection (Access IDs)
+    match /generatedIds/{idString} {
+      // Anyone can read to validate during signup
+      allow read: if true;
+
+      // Only admins can create new IDs
+      allow create: if isAdmin() &&
+                       request.resource.data.keys().hasAll(['idString', 'role', 'used', 'createdAt']) &&
+                       request.resource.data.role in ['contributor', 'reviewer', 'publisher'] &&
+                       request.resource.data.used == false;
+
+      // System can mark as used during signup
+      allow update: if isAuthenticated() &&
+                       resource.data.used == false &&
+                       request.resource.data.used == true &&
+                       request.resource.data.userId == request.auth.uid;
+
+      // Admins can update (reset access IDs)
+      allow update: if isAdmin();
+
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    // Documents collection
+    match /documents/{documentId} {
+      // Contributors can read their own documents
+      allow read: if isAuthenticated() &&
+                     resource.data.contributorId == request.auth.uid;
+
+      // Reviewers can read submitted and under_review documents
+      allow read: if isReviewer() &&
+                     resource.data.status in ['submitted', 'under_review'];
+
+      // Publishers can read approved and published documents
+      allow read: if isPublisher() &&
+                     resource.data.status in ['approved', 'published'];
+
+      // Admins can read all documents
+      allow read: if isAdmin();
+
+      // Contributors can create documents
+      allow create: if isContributor() &&
+                       !isUserSuspended() &&
+                       request.resource.data.contributorId == request.auth.uid &&
+                       request.resource.data.status == 'draft' &&
+                       request.resource.data.keys().hasAll(['title', 'content', 'contributorId', 'contributorName', 'status', 'createdAt', 'updatedAt']);
+
+      // Contributors can update their own draft documents
+      allow update: if isContributor() &&
+                       !isUserSuspended() &&
+                       resource.data.contributorId == request.auth.uid &&
+                       resource.data.status == 'draft';
+
+      // Contributors can submit their documents
+      allow update: if isContributor() &&
+                       !isUserSuspended() &&
+                       resource.data.contributorId == request.auth.uid &&
+                       resource.data.status == 'draft' &&
+                       request.resource.data.status == 'submitted';
+
+      // Reviewers can update submitted documents (start review)
+      allow update: if isReviewer() &&
+                       !isUserSuspended() &&
+                       resource.data.status == 'submitted' &&
+                       request.resource.data.status == 'under_review' &&
+                       request.resource.data.reviewerId == request.auth.uid;
+
+      // Reviewers can approve or reject documents under review
+      allow update: if isReviewer() &&
+                       !isUserSuspended() &&
+                       resource.data.status == 'under_review' &&
+                       resource.data.reviewerId == request.auth.uid &&
+                       request.resource.data.status in ['approved', 'rejected'];
+
+      // Publishers can publish approved documents
+      allow update: if isPublisher() &&
+                       !isUserSuspended() &&
+                       resource.data.status == 'approved' &&
+                       request.resource.data.status == 'published' &&
+                       request.resource.data.publisherId == request.auth.uid;
+
+      // Admins can update any document
+      allow update: if isAdmin();
+
+      // Contributors can delete their own draft documents
+      allow delete: if isContributor() &&
+                       resource.data.contributorId == request.auth.uid &&
+                       resource.data.status == 'draft';
+
+      // Admins can delete any document
+      allow delete: if isAdmin();
+    }
+
+    // Activity Logs collection
+    match /activityLogs/{logId} {
+      // Only admins can read activity logs
+      allow read: if isAdmin();
+
+      // Users can read their own activity logs
+      allow read: if isAuthenticated() &&
+                     resource.data.userId == request.auth.uid;
+
+      // Authenticated users can create activity logs
+      allow create: if isAuthenticated() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['userId', 'userName', 'userRole', 'action', 'details', 'timestamp']);
+
+      // Admins can create activity logs for any user
+      allow create: if isAdmin() &&
+                       request.resource.data.keys().hasAll(['userId', 'userName', 'userRole', 'action', 'details', 'timestamp']);
+
+      // Nobody can update activity logs
+      allow update: if false;
+
+      // Only admins can delete activity logs
+      allow delete: if isAdmin();
+    }
+
+    // Payouts collection
+    match /payouts/{payoutId} {
+      // Users can read their own payout requests
+      allow read: if isAuthenticated() &&
+                     resource.data.userId == request.auth.uid;
+
+      // Admins can read all payout requests
+      allow read: if isAdmin();
+
+      // Contributors and reviewers can create payout requests
+      allow create: if isAuthenticated() &&
+                       !isUserSuspended() &&
+                       (isContributor() || isReviewer()) &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.keys().hasAll(['userId', 'userName', 'userRole', 'amount', 'status', 'requestedAt']);
+
+      // Only admins can update payout status
+      allow update: if isAdmin() &&
+                       resource.data.status in ['pending', 'approved'] &&
+                       request.resource.data.status in ['approved', 'paid', 'rejected'];
+
+      // Nobody can delete payouts
+      allow delete: if false;
+
+      // Admins can delete payouts (for cleanup)
+      allow delete: if isAdmin();
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
