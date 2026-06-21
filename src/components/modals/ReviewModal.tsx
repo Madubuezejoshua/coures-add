@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { documentService, Document } from '../../services/documentService';
-import { FileSearch } from 'lucide-react';
+import { FileSearch, ExternalLink, Download } from 'lucide-react';
 import { Button, FormField, Textarea, Notice, Spinner, Modal } from '../ui';
+import { fileDownloadUrl } from '../../lib/api';
 
 interface ReviewModalProps {
   documentId: string;
@@ -125,6 +126,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ documentId, onClose, o
 
   const meta = ACTION_META[action];
   const submitVariant = action === 'approve' ? 'success' : action === 'reject' ? 'danger' : 'primary';
+  const previewUrl = document.fileUrl ? fileDownloadUrl(document.fileUrl) : undefined;
+  const isPdf = document.fileType?.includes('pdf') || document.fileName?.toLowerCase().endsWith('.pdf');
 
   return (
     <Modal
@@ -154,6 +157,47 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ documentId, onClose, o
         <div>
           <h3 className="text-lg font-semibold text-slate-900">{document.title}</h3>
           <p className="mt-1 text-sm text-slate-500">By {document.contributorName}</p>
+
+          {previewUrl && (
+            <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Attached document</p>
+                  <p className="text-xs text-slate-500">{document.fileName || 'Document file'}</p>
+                </div>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                >
+                  <ExternalLink className="h-4 w-4" /> Open
+                </a>
+              </div>
+
+              {isPdf && (
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <iframe
+                    src={previewUrl}
+                    title={`${document.title} preview`}
+                    className="h-[420px] w-full"
+                  />
+                </div>
+              )}
+
+              {!isPdf && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Download className="h-4 w-4" /> Download / view file
+                </a>
+              )}
+            </div>
+          )}
+
           <div className="mt-4 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-5">
             <p className="whitespace-pre-wrap leading-relaxed text-slate-700">{document.content}</p>
           </div>
