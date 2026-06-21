@@ -90,9 +90,15 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ documentId, onClose, o
 
       onSave();
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating document:', err);
-      setError('Failed to submit review');
+      const message =
+        err?.status === 401
+          ? 'Your session has expired. Please sign in again and try submitting the review.'
+          : err?.status === 403
+            ? 'You are not allowed to submit this review.'
+            : err?.message || 'Failed to submit review';
+      setError(message);
     } finally {
       setSubmitting(false);
     }

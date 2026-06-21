@@ -63,19 +63,29 @@ router.post('/:id/claim', requireRole('reviewer'), requireActive, ah(async (req,
   res.json({ success: true });
 }));
 
-router.post('/:id/decide', requireRole('reviewer'), requireActive, ah(async (req, res) => {
-  const { decision, comments } = req.body || {};
+router.post('/:id/decide', requireRole('reviewer', 'admin'), requireActive, ah(async (req, res) => {
+  const { decision } = req.body || {};
+  const rawComments =
+    req.body?.comments ??
+    req.body?.reviewComments ??
+    req.body?.rejectionReason ??
+    req.body?.correctionNotes ??
+    '';
+  const comments = String(rawComments).trim();
   const map = { approve: 'approved', reject: 'rejected', corrections: 'needs_correction' };
   const status = map[decision];
   if (!status) return res.status(400).json({ error: 'Invalid decision' });
-  if (!comments?.trim()) return res.status(400).json({ error: 'Please provide comments' });
+  if (!comments) return res.status(400).json({ error: 'Please provide comments' });
 
   const d = await getDoc(req.params.id);
-  if (!d || d.status !== 'under_review' || d.reviewer_id !== req.user.id) return res.status(400).json({ error: 'Not allowed' });
+  const canDecide = req.user.role === 'admin' || !d?.reviewer_id || d.reviewer_id === req.user.id;
+  if (!d || d.status !== 'under_review' || !canDecide) {
+    return res.status(403).json({ error: 'Only the assigned reviewer can submit this decision.' });
+  }
 
   const col = decision === 'approve' ? 'review_comments' : decision === 'reject' ? 'rejection_reason' : 'correction_notes';
   await query(`UPDATE documents SET status=$1, ${col}=$2, updated_at=now() WHERE id=$3`, [status, comments, d.id]);
-  await logActivity(`REVIEW_${decision.toUpperCase()}`, req.user.full_name, req.user.id, 'reviewer', `${decision} "${d.title}"`, d.title, d.id, d.id);
+  await logActivity(`REVIEW_${decision.toUpperCase()}`, req.user.full_name, req.user.id, req.user.role, `${decision} "${d.title}"`, d.title, d.id, d.id);
   if (d.contributor_id) {
     const t = decision === 'approve' ? 'Document approved' : decision === 'reject' ? 'Document rejected' : 'Revision requested';
     await notify(d.contributor_id, `REVIEW_${decision.toUpperCase()}`, t, `"${d.title}": see the reviewer's notes.`, '/editor/dashboard');
