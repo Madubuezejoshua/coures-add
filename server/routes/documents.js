@@ -26,8 +26,17 @@ router.get('/my-reviews', requireRole('reviewer'), ah(async (req, res) =>
 router.get('/for-publishing', requireRole('admin'), ah(async (_req, res) =>
   res.json(await list(`SELECT * FROM documents WHERE status='approved' ORDER BY updated_at DESC`))));
 
-router.get('/ready', requireRole('publisher', 'admin'), ah(async (_req, res) =>
-  res.json(await list(`SELECT * FROM documents WHERE status='ready_for_publishing' ORDER BY updated_at DESC`))));
+router.get('/ready', requireRole('publisher', 'admin'), ah(async (req, res) => {
+  if (req.user.role === 'publisher') {
+    res.json(await list(
+      `SELECT * FROM documents WHERE status='ready_for_publishing' AND publisher_id=$1 ORDER BY updated_at DESC`,
+      [req.user.id]
+    ));
+    return;
+  }
+
+  res.json(await list(`SELECT * FROM documents WHERE status='ready_for_publishing' ORDER BY updated_at DESC`));
+}));
 
 router.get('/published', ah(async (_req, res) =>
   res.json(await list(`SELECT * FROM documents WHERE status='published' ORDER BY published_at DESC NULLS LAST`))));
@@ -39,6 +48,38 @@ router.get('/:id', ah(async (req, res) => {
   const d = await getDoc(req.params.id);
   if (!d) return res.status(404).json({ error: 'Not found' });
   res.json(serDoc(d));
+}));
+
+router.put('/:id', requireRole('admin'), requireActive, ah(async (req, res) => {
+  const d = await getDoc(req.params.id);
+  if (!d) return res.status(404).json({ error: 'Not found' });
+
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : d.title;
+  const description = typeof req.body?.description === 'string' ? req.body.description : d.description;
+  const content = typeof req.body?.content === 'string' ? req.body.content : d.content;
+
+  if (!title) return res.status(400).json({ error: 'Title is required' });
+
+  const { rows } = await query(
+    `UPDATE documents
+     SET title=$1, description=$2, content=$3, updated_at=now()
+     WHERE id=$4
+     RETURNING *`,
+    [title, description || null, content, d.id]
+  );
+
+  await logActivity(
+    'DOCUMENT_UPDATED_BY_ADMIN',
+    req.user.full_name,
+    req.user.id,
+    'admin',
+    `Updated "${title}"`,
+    title,
+    rows[0].id,
+    rows[0].id
+  );
+
+  res.json(serDoc(rows[0]));
 }));
 
 // ---- writes ----------------------------------------------------------------
@@ -108,9 +149,37 @@ router.post('/:id/assign-publisher', requireRole('admin'), ah(async (req, res) =
   const { publisherId, publisherName } = req.body || {};
   const d = await getDoc(req.params.id);
   if (!d) return res.status(404).json({ error: 'Not found' });
-  await query(`UPDATE documents SET publisher_id=$1, publisher_name=$2, updated_at=now() WHERE id=$3`, [publisherId, publisherName, d.id]);
-  await logActivity('DOCUMENT_ASSIGNED_TO_PUBLISHER', 'Admin', req.user.id, 'admin', `Assigned "${d.title}" to ${publisherName}`, publisherName, publisherId, d.id);
-  await notify(publisherId, 'DOCUMENT_ASSIGNED', 'Document assigned to you', `"${d.title}" has been assigned to you for publishing.`, '/publisher/dashboard');
+  if (!publisherId || !publisherName) {
+    return res.status(400).json({ error: 'Publisher details are required' });
+  }
+  if (!['approved', 'ready_for_publishing'].includes(d.status)) {
+    return res.status(400).json({ error: 'Only approved documents can be assigned to publishers' });
+  }
+
+  await query(
+    `UPDATE documents
+     SET publisher_id=$1, publisher_name=$2, status='ready_for_publishing', updated_at=now()
+     WHERE id=$3`,
+    [publisherId, publisherName, d.id]
+  );
+
+  await logActivity(
+    'DOCUMENT_ASSIGNED_TO_PUBLISHER',
+    'Admin',
+    req.user.id,
+    'admin',
+    `Assigned "${d.title}" to ${publisherName}`,
+    publisherName,
+    publisherId,
+    d.id
+  );
+  await notify(
+    publisherId,
+    'DOCUMENT_ASSIGNED',
+    'Document assigned to you',
+    `"${d.title}" has been assigned to you for publishing.`,
+    '/publisher/dashboard'
+  );
   res.json({ success: true });
 }));
 

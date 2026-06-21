@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { documentService, Document } from '../../services/documentService';
-import { FileSearch, Eye, Circle, Type, Save, Trash2 } from 'lucide-react';
+import { FileSearch, Eye, Circle, Type, Save, Trash2, Pencil } from 'lucide-react';
 import {
   Spinner,
   EmptyState,
@@ -11,6 +11,7 @@ import {
   Modal,
   Select,
   Textarea,
+  Input,
 } from '../ui';
 import { cn } from '../../lib/cn';
 
@@ -34,6 +35,12 @@ export const DocumentExaminationTab: React.FC = () => {
   const [selectedText, setSelectedText] = useState<{ start: number; end: number } | null>(null);
   const [noteText, setNoteText] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isEditingDoc, setIsEditingDoc] = useState(false);
+  const [savingDocument, setSavingDocument] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftDescription, setDraftDescription] = useState('');
+  const [draftContent, setDraftContent] = useState('');
+  const [editError, setEditError] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +49,11 @@ export const DocumentExaminationTab: React.FC = () => {
 
   useEffect(() => {
     if (selectedDoc) {
+      setDraftTitle(selectedDoc.title || '');
+      setDraftDescription(selectedDoc.description || '');
+      setDraftContent(selectedDoc.content || '');
+      setIsEditingDoc(false);
+      setEditError('');
       loadAnnotations(selectedDoc.id!);
     }
   }, [selectedDoc]);
@@ -67,6 +79,28 @@ export const DocumentExaminationTab: React.FC = () => {
     if (!selectedDoc) return;
     setSaving(true);
     setTimeout(() => setSaving(false), 300);
+  };
+
+  const saveDocumentChanges = async () => {
+    if (!selectedDoc?.id) return;
+    setSavingDocument(true);
+    setEditError('');
+
+    try {
+      const updatedDoc = await documentService.updateDocument(selectedDoc.id, {
+        title: draftTitle,
+        description: draftDescription,
+        content: draftContent,
+      });
+      setSelectedDoc(updatedDoc);
+      setDocuments((prev) => prev.map((doc) => (doc.id === updatedDoc.id ? updatedDoc : doc)));
+      setIsEditingDoc(false);
+    } catch (err: any) {
+      console.error('Error updating document:', err);
+      setEditError(err?.message || 'Failed to update document');
+    } finally {
+      setSavingDocument(false);
+    }
   };
 
   const handleTextSelection = () => {
@@ -180,6 +214,8 @@ export const DocumentExaminationTab: React.FC = () => {
     setAnnotations([]);
     setSelectedText(null);
     setNoteText('');
+    setIsEditingDoc(false);
+    setEditError('');
   };
 
   if (loading) {
@@ -264,9 +300,22 @@ export const DocumentExaminationTab: React.FC = () => {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
               <div className="flex items-center justify-between gap-3">
-                <h4 className="text-lg font-semibold text-slate-900">{selectedDoc.title}</h4>
-                <StatusBadge status={selectedDoc.status} />
+                <h4 className="text-lg font-semibold text-slate-900">{isEditingDoc ? 'Edit Document' : selectedDoc.title}</h4>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={selectedDoc.status} />
+                  {!isEditingDoc ? (
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingDoc(true)}>
+                      <Pencil className="h-4 w-4" /> Edit
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="success" loading={savingDocument} onClick={saveDocumentChanges}>
+                      <Save className="h-4 w-4" /> Save
+                    </Button>
+                  )}
+                </div>
               </div>
+
+              {editError && <Notice tone="danger">{editError}</Notice>}
 
               <div className="flex gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
                 <Button
@@ -344,18 +393,40 @@ export const DocumentExaminationTab: React.FC = () => {
 
               <div>
                 <h5 className="mb-2 text-sm font-medium text-slate-500">Document Content</h5>
-                <div
-                  ref={contentRef}
-                  onMouseUp={handleTextSelection}
-                  className={cn(
-                    'rounded-xl border border-slate-200 bg-white p-6',
-                    annotationMode !== 'view' && 'cursor-text select-text'
-                  )}
-                >
-                  <div className="whitespace-pre-wrap text-base leading-relaxed text-slate-700">
-                    {renderAnnotatedContent()}
+                {isEditingDoc ? (
+                  <div className="space-y-3">
+                    <Input
+                      value={draftTitle}
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      placeholder="Document title"
+                    />
+                    <Textarea
+                      value={draftDescription}
+                      onChange={(e) => setDraftDescription(e.target.value)}
+                      placeholder="Document description"
+                      rows={2}
+                    />
+                    <Textarea
+                      value={draftContent}
+                      onChange={(e) => setDraftContent(e.target.value)}
+                      placeholder="Document content"
+                      rows={12}
+                    />
                   </div>
-                </div>
+                ) : (
+                  <div
+                    ref={contentRef}
+                    onMouseUp={handleTextSelection}
+                    className={cn(
+                      'rounded-xl border border-slate-200 bg-white p-6',
+                      annotationMode !== 'view' && 'cursor-text select-text'
+                    )}
+                  >
+                    <div className="whitespace-pre-wrap text-base leading-relaxed text-slate-700">
+                      {renderAnnotatedContent()}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -79,6 +79,13 @@ export const documentService = {
     return api.get('/documents/all');
   },
 
+  updateDocument(
+    id: string,
+    updates: { title?: string; description?: string; content?: string }
+  ): Promise<Document> {
+    return api.put(`/documents/${id}`, updates);
+  },
+
   claimDocument(documentId: string, _reviewerId?: string, _reviewerName?: string): Promise<void> {
     return api.post(`/documents/${documentId}/claim`);
   },

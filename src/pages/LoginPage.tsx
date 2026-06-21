@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
     <AuthScreen
       icon={<LogIn className="h-7 w-7" />}
       title="Login to your account!"
-      subtitle="Enter your registered email address and password to login!"
+      subtitle="Enter your registered email address and password to login. Admins use this same page too."
       footer={
         <>
           Don't have an account?{' '}
@@ -62,6 +62,10 @@ export const LoginPage: React.FC = () => {
         <FormField label="Password">
           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••••••" disabled={loading} required />
         </FormField>
+
+        <Notice tone="info" className="text-xs">
+          Admin accounts also sign in from this same page.
+        </Notice>
 
         <div className="flex items-center justify-between text-sm">
           <label className="flex cursor-pointer items-center gap-2 text-slate-600">
