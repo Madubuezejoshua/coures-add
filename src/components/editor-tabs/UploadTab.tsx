@@ -77,7 +77,9 @@ export const UploadTab: React.FC<{ onUploadComplete: () => void }> = ({ onUpload
     } catch (err: any) {
       console.error('Error uploading document:', err);
       const code = err?.code as string | undefined;
-      if (code === 'storage/unauthorized') {
+      if (err?.status === 401) {
+        setError('Your session appears to have expired. Please sign in again and try the upload once more.');
+      } else if (code === 'storage/unauthorized') {
         setError('File upload was blocked. Please check your access or try again without a file.');
       } else if (code === 'storage/retry-limit-exceeded' || code === 'storage/canceled') {
         setError('The file upload timed out. Please check your connection and try again.');

@@ -43,17 +43,9 @@ async function request<T = any>(method: string, path: string, body?: unknown): P
   if (!res.ok) {
     if (res.status === 401) {
       setToken(null);
-      // A protected endpoint rejected the session (missing/expired/stale token).
-      // Send the user to login for a clean re-auth instead of leaving the app
-      // in a broken "Not authenticated" state. Auth endpoints handle their own
-      // 401s (e.g. wrong password) so we never bounce those.
-      if (
-        !path.startsWith('/auth/') &&
-        typeof window !== 'undefined' &&
-        window.location.pathname !== '/login'
-      ) {
-        window.location.assign('/login');
-      }
+      // Avoid bouncing users to the login page on transient 401s from upload/
+      // document flows. Let the UI show the actual error instead so the user
+      // can retry without losing their place.
     }
     const fallback =
       res.status >= 500 || res.status === 0

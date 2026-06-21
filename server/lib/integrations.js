@@ -27,6 +27,7 @@ async function getClient() {
   _client = new S3Client({
     region: STORAGE.region,
     endpoint: STORAGE.endpoint,
+    forcePathStyle: true,
     credentials: { accessKeyId: STORAGE.accessKeyId, secretAccessKey: STORAGE.secretAccessKey },
   });
   return _client;
@@ -47,7 +48,15 @@ export async function storagePresignGet(key, expiresIn = 600) {
   const { GetObjectCommand } = await import('@aws-sdk/client-s3');
   const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
   const client = await getClient();
-  return getSignedUrl(client, new GetObjectCommand({ Bucket: STORAGE.bucket, Key: key }), { expiresIn });
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: STORAGE.bucket,
+      Key: key,
+      ResponseContentDisposition: 'inline',
+    }),
+    { expiresIn }
+  );
 }
 
 /** Initialise a Paystack transaction; mock-completes instantly if unconfigured. */

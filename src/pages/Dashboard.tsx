@@ -2,6 +2,7 @@ import React, { useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AccountStatusScreen } from '../components/layout/AccountStatusScreen';
+import { getToken } from '../lib/api';
 import { Loader } from 'lucide-react';
 
 const AdminDashboard = lazy(() => import('../components/dashboards/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
@@ -21,7 +22,9 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) navigate('/login');
+    if (!loading && !user && !getToken()) {
+      navigate('/login');
+    }
   }, [user, loading, navigate]);
 
   if (loading) {
