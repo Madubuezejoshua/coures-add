@@ -39,7 +39,14 @@ async function request<T = any>(method: string, path: string, body?: unknown): P
     throw new ApiError('Cannot reach the server. Make sure the API is running (run "npm start").', 0);
   }
 
-  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  const raw = await res.text().catch(() => '');
+  let data: any = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    /* non-JSON response */
+  }
+
   if (!res.ok) {
     if (res.status === 401) {
       setToken(null);
@@ -47,10 +54,18 @@ async function request<T = any>(method: string, path: string, body?: unknown): P
       // document flows. Let the UI show the actual error instead so the user
       // can retry without losing their place.
     }
+
+    const prodApiHint = !import.meta.env.VITE_API_URL && import.meta.env.PROD
+      ? ' On Vercel, set VITE_API_URL to your deployed API base URL (for example https://your-api.example.com/api).'
+      : '';
+
     const fallback =
-      res.status >= 500 || res.status === 0
-        ? 'Cannot reach the server. Make sure the API is running (run "npm start").'
-        : 'Request failed';
+      res.status === 404
+        ? `API route not found. Check that the backend is deployed and the VITE_API_URL setting is correct.${prodApiHint}`
+        : res.status >= 500 || res.status === 0
+          ? `Cannot reach the API server. Make sure the backend is running and reachable from your deployment.${prodApiHint}`
+          : 'Request failed';
+
     throw new ApiError((data && (data.error || data.message)) || fallback, res.status);
   }
   return data as T;
