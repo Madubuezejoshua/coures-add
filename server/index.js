@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { pathToFileURL } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import { pool } from './db.js';
@@ -12,7 +13,7 @@ import notificationsRoutes from './routes/notifications.js';
 import messagesRoutes from './routes/messages.js';
 import miscRoutes from './routes/misc.js';
 
-const app = express();
+export const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? true }));
 app.use(express.json({ limit: '2mb' }));
 
@@ -64,16 +65,26 @@ if (!process.env.DATABASE_URL) {
   console.warn('[server] DATABASE_URL is not set — the API will start but DB calls will fail.');
 }
 
-const PORT = Number(process.env.PORT) || 5050;
-const HOST = process.env.HOST || '127.0.0.1';
-const server = app.listen(PORT, HOST, () => {
-  console.log(`[server] API listening on http://${HOST}:${PORT}`);
-  ensureSchema(); // auto-create missing tables + warn on stale schema
-});
-server.on('error', (e) => {
-  console.error('[server error]', e.message);
-  if (e.code === 'EADDRINUSE') {
-    console.error(`[server] Port ${PORT} is in use. Set PORT=<free port> in .env (avoid Windows-reserved ranges).`);
-    process.exit(1);
-  }
-});
+export function startServer() {
+  const PORT = Number(process.env.PORT) || 5050;
+  const HOST = process.env.HOST || '127.0.0.1';
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`[server] API listening on http://${HOST}:${PORT}`);
+    ensureSchema(); // auto-create missing tables + warn on stale schema
+  });
+  server.on('error', (e) => {
+    console.error('[server error]', e.message);
+    if (e.code === 'EADDRINUSE') {
+      console.error(`[server] Port ${PORT} is in use. Set PORT=<free port> in .env (avoid Windows-reserved ranges).`);
+      process.exit(1);
+    }
+  });
+  return server;
+}
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  startServer();
+}
+
+export default app;
