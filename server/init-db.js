@@ -10,10 +10,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * warn loudly if an OLD/incompatible `users` table is present (needs db:reset).
  * Non-fatal — the server still starts if the DB is briefly unreachable.
  */
+export async function ensureUsersRoleConstraint() {
+  try {
+    await pool.query(`
+      ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+      ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin','author','editor','reviewer','publisher','user'));
+    `);
+  } catch (e) {
+    if (e?.code === '42P01') return;
+    console.warn('[db] could not update users role constraint:', e.message);
+  }
+}
+
 export async function ensureSchema() {
   try {
     const sql = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
     await pool.query(sql);
+    await ensureUsersRoleConstraint();
 
     const { rows } = await pool.query(
       `SELECT 1 FROM information_schema.columns
