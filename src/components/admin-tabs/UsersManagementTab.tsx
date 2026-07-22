@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { userManagementService, UserData } from '../../services/userManagementService';
 import { Users, Ban, Trash2, CheckCircle2, XCircle, RotateCcw, Shield } from 'lucide-react';
 import { Spinner, EmptyState, PageHeader, Notice, Button, Badge, StatusBadge, Modal, FormField, Textarea, Select, FilterPills, Input } from '../ui';
-import { PUBLIC_ROLES, ROLE_META, type Role } from '../../lib/roles';
+import { ROLE_META, type Role } from '../../lib/roles';
 
 type StatusFilter = 'all' | 'pending' | 'active' | 'suspended' | 'rejected';
 type Action = 'approve' | 'reject' | 'suspend' | 'reactivate' | 'role' | 'delete';
@@ -210,8 +210,8 @@ export const UsersManagementTab: React.FC = () => {
             {action === 'role' && (
               <FormField label="New role">
                 <Select value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
-                  {PUBLIC_ROLES.map((r) => (
-                    <option key={r} value={r}>{ROLE_META[r].label}</option>
+                  {(['admin', 'author', 'editor', 'reviewer', 'publisher', 'user'] as Role[]).map((r) => (
+                    <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
                   ))}
                 </Select>
               </FormField>

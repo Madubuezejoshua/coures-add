@@ -20,11 +20,25 @@ router.post('/register', ah(async (req, res) => {
   const registrationNumber = await nextRegistrationNumber(role);
 
   // Free, instant sign-up: new accounts are active immediately (no approval).
-  const { rows } = await query(
-    `INSERT INTO users (email, password_hash, full_name, role, registration_number, status)
-     VALUES ($1,$2,$3,$4,$5,'active') RETURNING *`,
-    [email.trim().toLowerCase(), passwordHash, fullName.trim(), role, registrationNumber]
-  );
+  let rows;
+  try {
+    ({ rows } = await query(
+      `INSERT INTO users (email, password_hash, full_name, role, registration_number, status)
+       VALUES ($1,$2,$3,$4,$5,'active') RETURNING *`,
+      [email.trim().toLowerCase(), passwordHash, fullName.trim(), role, registrationNumber]
+    ));
+  } catch (error) {
+    const message = error?.message || '';
+    if (message.includes('role') && message.includes('check')) {
+      ({ rows } = await query(
+        `INSERT INTO users (email, password_hash, full_name, role, registration_number, status)
+         VALUES ($1,$2,$3,$4,$5,'active') RETURNING *`,
+        [email.trim().toLowerCase(), passwordHash, fullName.trim(), role === 'author' ? 'author' : role, registrationNumber]
+      ));
+    } else {
+      throw error;
+    }
+  }
   const user = rows[0];
 
   await logActivity('USER_REGISTERED', fullName.trim(), user.id, role, `Registered as ${role} (${registrationNumber})`, registrationNumber);

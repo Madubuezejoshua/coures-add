@@ -45,7 +45,7 @@ export const AnalysisTab: React.FC = () => {
           <CardBody>
             <h3 className="mb-4 text-base font-semibold text-slate-900">Users by Role</h3>
             <div className="space-y-2">
-              {[['Editors', 'editor'], ['Reviewers', 'reviewer'], ['Publishers', 'publisher'], ['Readers', 'user']].map(([label, role]) => (
+              {[['Authors', 'author'], ['Editors', 'editor'], ['Reviewers', 'reviewer'], ['Publishers', 'publisher'], ['Readers', 'user']].map(([label, role]) => (
                 <div key={role} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
                   <span className="text-slate-600">{label}</span>
                   <span className="font-semibold text-slate-900">{byRole(role)}</span>
