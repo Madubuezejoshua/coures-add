@@ -83,7 +83,7 @@ router.put('/:id', requireRole('admin'), requireActive, ah(async (req, res) => {
 }));
 
 // ---- writes ----------------------------------------------------------------
-router.post('/', requireRole('author', 'editor'), requireActive, ah(async (req, res) => {
+router.post('/', requireRole('author'), requireActive, ah(async (req, res) => {
   const { title, content, description, fileUrl, fileName, fileType } = req.body || {};
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
   const { rows } = await query(
@@ -121,7 +121,7 @@ router.post('/:id/decide', requireRole('reviewer'), requireActive, ah(async (req
   if (!comments) return res.status(400).json({ error: 'Please provide comments' });
 
   const d = await getDoc(req.params.id);
-  const canDecide = req.user.role === 'admin' || !d?.reviewer_id || d.reviewer_id === req.user.id;
+  const canDecide = req.user.role === 'admin' || (!d?.reviewer_id || d.reviewer_id === req.user.id);
   if (!d || d.status !== 'under_review' || !canDecide) {
     return res.status(403).json({ error: 'Only the assigned reviewer can submit this decision.' });
   }
@@ -137,18 +137,18 @@ router.post('/:id/decide', requireRole('reviewer'), requireActive, ah(async (req
   res.json({ success: true });
 }));
 
-router.post('/:id/resubmit', requireRole('author', 'editor'), requireActive, ah(async (req, res) => {
+router.post('/:id/resubmit', requireRole('author'), requireActive, ah(async (req, res) => {
   const { content } = req.body || {};
   const d = await getDoc(req.params.id);
   if (!d || d.contributor_id !== req.user.id || !['rejected', 'needs_correction'].includes(d.status))
     return res.status(400).json({ error: 'Not allowed' });
   await query(`UPDATE documents SET status='submitted', content=$1, updated_at=now() WHERE id=$2`, [content ?? d.content, d.id]);
-  await logActivity('DOCUMENT_RESUBMITTED', req.user.full_name, req.user.id, 'editor', `Resubmitted "${d.title}"`, d.title, d.id, d.id);
+  await logActivity('DOCUMENT_RESUBMITTED', req.user.full_name, req.user.id, req.user.role, `Resubmitted "${d.title}"`, d.title, d.id, d.id);
   if (d.reviewer_id) await notify(d.reviewer_id, 'DOCUMENT_RESUBMITTED', 'Document resubmitted', `"${d.title}" was corrected and resubmitted.`, '/reviewer/dashboard');
   res.json({ success: true });
 }));
 
-router.post('/:id/assign-publisher', requireRole('editor', 'admin'), ah(async (req, res) => {
+router.post('/:id/assign-publisher', requireRole('editor', 'admin'), requireActive, ah(async (req, res) => {
   const { publisherId, publisherName } = req.body || {};
   const d = await getDoc(req.params.id);
   if (!d) return res.status(404).json({ error: 'Not found' });
@@ -168,9 +168,9 @@ router.post('/:id/assign-publisher', requireRole('editor', 'admin'), ah(async (r
 
   await logActivity(
     'DOCUMENT_ASSIGNED_TO_PUBLISHER',
-    'Admin',
+    req.user.full_name,
     req.user.id,
-    'admin',
+    req.user.role,
     `Assigned "${d.title}" to ${publisherName}`,
     publisherName,
     publisherId,
