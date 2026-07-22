@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin','editor','reviewer','publisher','user')),
+  role TEXT NOT NULL CHECK (role IN ('admin','author','editor','reviewer','publisher','user')),
   registration_number TEXT UNIQUE,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending','active','suspended','rejected')),
   wallet_balance NUMERIC NOT NULL DEFAULT 0,

@@ -30,10 +30,11 @@ router.post('/register', ah(async (req, res) => {
   } catch (error) {
     const message = error?.message || '';
     if (message.includes('role') && message.includes('check')) {
+      const safeRole = role === 'author' ? 'author' : role;
       ({ rows } = await query(
         `INSERT INTO users (email, password_hash, full_name, role, registration_number, status)
          VALUES ($1,$2,$3,$4,$5,'active') RETURNING *`,
-        [email.trim().toLowerCase(), passwordHash, fullName.trim(), role === 'author' ? 'author' : role, registrationNumber]
+        [email.trim().toLowerCase(), passwordHash, fullName.trim(), safeRole, registrationNumber]
       ));
     } else {
       throw error;
