@@ -7,7 +7,7 @@ if (JWT_SECRET === 'dev-secret-change-me') {
 }
 
 function normalizeRole(role) {
-  return role === 'user' ? 'author' : role;
+  return role || 'user';
 }
 
 export function signToken(user) {
