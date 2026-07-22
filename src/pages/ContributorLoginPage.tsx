@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
 import { LogIn, AlertCircle, Loader } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export const ContributorLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,40 +16,20 @@ export const ContributorLoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      const contributorDocRef = doc(db, 'contributors', user.uid);
-      const contributorDoc = await getDoc(contributorDocRef);
-
-      if (!contributorDoc.exists()) {
-        await auth.signOut();
-        setError('This account does not have contributor privileges');
-        setLoading(false);
+      const result = await authService.signIn(email, password);
+      if (!result.success) {
+        setError(result.error || 'Failed to login');
         return;
       }
 
-      const userData = contributorDoc.data();
-      if (userData?.status === 'suspended') {
-        await auth.signOut();
-        setError('Your account has been suspended. Reason: ' + (userData?.suspensionReason || 'No reason provided'));
-        setLoading(false);
+      if (result.role !== 'author') {
+        setError('This account does not have author privileges');
         return;
       }
 
-      navigate('/contributor/dashboard');
-    } catch (err: any) {
-      let errorMessage = 'Failed to login';
-      if (err.code === 'auth/user-not-found') {
-        errorMessage = 'Account not found';
-      } else if (err.code === 'auth/wrong-password') {
-        errorMessage = 'Invalid password';
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address';
-      } else if (err.code === 'auth/invalid-credential') {
-        errorMessage = 'Invalid email or password';
-      }
-      setError(errorMessage);
+      navigate('/dashboard');
+    } catch {
+      setError('Failed to login');
     } finally {
       setLoading(false);
     }

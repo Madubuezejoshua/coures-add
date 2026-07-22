@@ -25,7 +25,7 @@ export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
 
   return (
-    <DashboardShell title="Admin Dashboard" subtitle="System management and analytics" tabs={TABS} active={activeTab} onChange={setActiveTab}>
+    <DashboardShell title="Admin Dashboard" subtitle="Manage users, roles, settings and workflow oversight" tabs={TABS} active={activeTab} onChange={setActiveTab}>
       <Suspense fallback={<Spinner label="Loading…" />}>
         {activeTab === 'analysis' && <AnalysisTab />}
         {activeTab === 'users' && <UsersManagementTab />}

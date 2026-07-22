@@ -18,7 +18,7 @@ export const ReviewerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('all-reviews');
 
   return (
-    <DashboardShell title="Reviewer Dashboard" subtitle="Review documents and track rewards" tabs={TABS} active={activeTab} onChange={setActiveTab}>
+    <DashboardShell title="Reviewer Dashboard" subtitle="Review assigned manuscripts and return decisions" tabs={TABS} active={activeTab} onChange={setActiveTab}>
       {activeTab === 'all-reviews' && <AllReviewsTab onClaim={() => setActiveTab('my-reviews')} />}
       {activeTab === 'my-reviews' && <MyReviewsTab />}
       {activeTab === 'rewards' && <RewardsTab />}

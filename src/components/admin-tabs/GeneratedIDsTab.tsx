@@ -45,20 +45,20 @@ export const GeneratedIDsTab: React.FC = () => {
       return true;
     })
     .sort((a, b) => {
-      const dateA = a.createdAt?.toDate?.()?.getTime() || new Date(a.createdAt).getTime();
-      const dateB = b.createdAt?.toDate?.()?.getTime() || new Date(b.createdAt).getTime();
+      const dateA = new Date(a.createdAt ?? 0).getTime();
+      const dateB = new Date(b.createdAt ?? 0).getTime();
       return sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
 
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
-    const d = date.toDate?.() || new Date(date);
+    const d = date instanceof Date ? date : new Date(date);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const formatDateTime = (date: any) => {
     if (!date) return 'N/A';
-    const d = date.toDate?.() || new Date(date);
+    const d = date instanceof Date ? date : new Date(date);
     return d.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -314,18 +314,12 @@ export const GeneratedIDsTab: React.FC = () => {
                         <span className="text-green-200">Used By:</span>
                         <span className="text-green-100">{selectedId.email}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-green-200">Used On:</span>
-                        <span className="text-green-100">{formatDateTime(selectedId.usedAt)}</span>
-                      </div>
-                      {selectedId.userId && (
-                        <div className="flex justify-between">
-                          <span className="text-green-200">User ID:</span>
-                          <span className="text-green-100 font-mono text-xs">
-                            {selectedId.userId.substring(0, 20)}...
-                          </span>
-                        </div>
-                      )}
+                      {selectedId.email && (
+                    <div className="flex justify-between">
+                      <span className="text-green-200">Used On:</span>
+                      <span className="text-green-100">{formatDateTime(selectedId.createdAt)}</span>
+                    </div>
+                  )}
                     </>
                   )}
                 </div>

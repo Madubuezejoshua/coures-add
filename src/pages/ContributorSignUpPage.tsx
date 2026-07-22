@@ -17,17 +17,12 @@ export const ContributorSignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (!accessId.trim().startsWith('CNT-')) {
-      setError('Contributor access IDs must start with CNT-');
-      return;
-    }
-
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (!accessId.trim() || !email.trim() || !password.trim() || !displayName.trim()) {
+    if (!email.trim() || !password.trim() || !displayName.trim()) {
       setError('Please fill in all fields');
       return;
     }
@@ -40,10 +35,10 @@ export const ContributorSignUpPage: React.FC = () => {
         email,
         password,
         displayName,
-        'contributor'
+        'author'
       );
       if (result.success) {
-        navigate('/contributor/dashboard');
+        navigate('/dashboard');
       } else {
         setError(result.error || 'Failed to sign up. Please try again.');
       }

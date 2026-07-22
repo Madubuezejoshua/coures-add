@@ -1,6 +1,6 @@
 import { query } from '../db.js';
 
-const PREFIX = { editor: 'EDT', reviewer: 'REV', publisher: 'PUB', user: 'USR' };
+const PREFIX = { admin: 'ADM', author: 'AUT', editor: 'EDT', reviewer: 'REV', publisher: 'PUB', user: 'USR' };
 
 /** Atomically allocate the next sequential registration number for a role. */
 export async function nextRegistrationNumber(role) {
@@ -45,6 +45,15 @@ export async function notifyAdmins(type, title, body, link) {
     );
   } catch (e) {
     console.error('notifyAdmins error', e.message);
+  }
+}
+
+export async function notifyRole(role, type, title, body, link) {
+  try {
+    const { rows } = await query('SELECT id FROM users WHERE role=$1', [role]);
+    await Promise.all(rows.map((row) => notify(row.id, type, title, body, link)));
+  } catch (e) {
+    console.error('notifyRole error', e.message);
   }
 }
 

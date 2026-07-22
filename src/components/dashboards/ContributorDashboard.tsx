@@ -44,8 +44,8 @@ export const ContributorDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Contributor Dashboard</h1>
-          <p className="text-slate-400">Upload documents and manage corrections</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Author Dashboard</h1>
+          <p className="text-slate-400">Create manuscripts, submit them for review, and track feedback.</p>
         </div>
 
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
@@ -90,7 +90,6 @@ export const ContributorDashboard: React.FC = () => {
                         <DocumentCard
                           key={doc.id}
                           document={doc}
-                          onUpdate={loadDocuments}
                           isOwner={true}
                         />
                       ))

@@ -17,17 +17,12 @@ export const PublisherSignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (!accessId.trim().startsWith('PUB-')) {
-      setError('Publisher access IDs must start with PUB-');
-      return;
-    }
-
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (!accessId.trim() || !email.trim() || !password.trim() || !displayName.trim()) {
+    if (!email.trim() || !password.trim() || !displayName.trim()) {
       setError('Please fill in all fields');
       return;
     }

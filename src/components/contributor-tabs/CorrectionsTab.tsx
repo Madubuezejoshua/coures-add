@@ -39,10 +39,7 @@ export const CorrectionsTab: React.FC<{ onCorrection: () => void }> = ({ onCorre
       setSubmitting(true);
       setError('');
 
-      await documentService.updateDocument(selectedDoc.id!, {
-        content: correctedContent,
-        status: 'submitted',
-      });
+      await documentService.resubmitDocument(selectedDoc.id!, correctedContent);
 
       await loadDocuments();
       setSelectedDoc(null);
@@ -66,7 +63,7 @@ export const CorrectionsTab: React.FC<{ onCorrection: () => void }> = ({ onCorre
     const segments: JSX.Element[] = [];
     let lastIndex = 0;
 
-    sortedHighlights.forEach((highlight, idx) => {
+    sortedHighlights.forEach((highlight) => {
       if (highlight.start > lastIndex) {
         segments.push(
           <span key={`text-${lastIndex}`}>

@@ -57,7 +57,7 @@ export const EditorDashboard: React.FC = () => {
   ];
 
   return (
-    <DashboardShell title="Editor Dashboard" subtitle="Create, submit and track your documents" tabs={tabs} active={activeTab} onChange={setActiveTab}>
+    <DashboardShell title="Editor Dashboard" subtitle="Review submissions, assign reviewers and route manuscripts" tabs={tabs} active={activeTab} onChange={setActiveTab}>
       {activeTab === 'upload' && <UploadTab onUploadComplete={() => { loadDocuments(); setActiveTab('my-documents'); }} />}
       {activeTab === 'corrections' && <CorrectionsTab onCorrection={loadDocuments} />}
       {activeTab === 'my-documents' && (

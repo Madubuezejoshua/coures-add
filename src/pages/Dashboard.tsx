@@ -9,6 +9,7 @@ const AdminDashboard = lazy(() => import('../components/dashboards/AdminDashboar
 const EditorDashboard = lazy(() => import('../components/dashboards/EditorDashboard').then((m) => ({ default: m.EditorDashboard })));
 const ReviewerDashboard = lazy(() => import('../components/dashboards/ReviewerDashboard').then((m) => ({ default: m.ReviewerDashboard })));
 const PublisherDashboard = lazy(() => import('../components/dashboards/PublisherDashboard').then((m) => ({ default: m.PublisherDashboard })));
+const ContributorDashboard = lazy(() => import('../components/dashboards/ContributorDashboard').then((m) => ({ default: m.ContributorDashboard })));
 const UserDashboard = lazy(() => import('../components/dashboards/UserDashboard').then((m) => ({ default: m.UserDashboard })));
 
 const DashLoader = () => (
@@ -44,6 +45,7 @@ export const Dashboard: React.FC = () => {
 
   const dashboards: Record<string, React.ReactNode> = {
     admin: <AdminDashboard />,
+    author: <ContributorDashboard />,
     editor: <EditorDashboard />,
     reviewer: <ReviewerDashboard />,
     publisher: <PublisherDashboard />,

@@ -48,7 +48,7 @@ export const PublisherDashboard: React.FC = () => {
   const currentDocs = activeTab === 'pending' ? approvedDocs : publishedDocs;
 
   return (
-    <DashboardShell title="Publisher Dashboard" subtitle="Review and publish approved documents" tabs={tabs} active={activeTab} onChange={setActiveTab}>
+    <DashboardShell title="Publisher Dashboard" subtitle="Publish approved manuscripts and manage the release queue" tabs={tabs} active={activeTab} onChange={setActiveTab}>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard icon={Clock} tone="amber" label="Awaiting publication" value={approvedDocs.length} />
         <StatCard icon={Globe} tone="emerald" label="Published" value={publishedDocs.length} hint="Live documents" />

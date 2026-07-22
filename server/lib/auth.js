@@ -6,8 +6,12 @@ if (JWT_SECRET === 'dev-secret-change-me') {
   console.warn('[auth] Using a default JWT secret — set JWT_SECRET in .env for production.');
 }
 
+function normalizeRole(role) {
+  return role === 'user' ? 'author' : role;
+}
+
 export function signToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ sub: user.id, role: normalizeRole(user.role) }, JWT_SECRET, { expiresIn: '30d' });
 }
 
 /** Verify a raw JWT string; returns the payload or null. */
@@ -28,7 +32,7 @@ export function publicUser(row) {
     email: row.email,
     fullName: row.full_name,
     displayName: row.full_name,
-    role: row.role,
+    role: normalizeRole(row.role),
     registrationNumber: row.registration_number,
     status: row.status,
     walletBalance: Number(row.wallet_balance ?? 0),
@@ -59,7 +63,8 @@ export async function authMiddleware(req, res, next) {
 
 export function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    const normalizedRole = normalizeRole(req.user?.role);
+    if (!req.user || !roles.includes(normalizedRole)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     next();

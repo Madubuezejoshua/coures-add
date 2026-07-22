@@ -1,10 +1,10 @@
 // Single source of truth for the role + account-status taxonomy.
 
-export type Role = 'admin' | 'editor' | 'reviewer' | 'publisher' | 'user';
+export type Role = 'admin' | 'author' | 'editor' | 'reviewer' | 'publisher' | 'user';
 export type AccountStatus = 'pending' | 'active' | 'suspended' | 'rejected';
 
 /** Roles a member of the public is allowed to self-register as (never admin). */
-export const PUBLIC_ROLES = ['editor', 'reviewer', 'publisher', 'user'] as const;
+export const PUBLIC_ROLES = ['author', 'editor', 'reviewer', 'publisher'] as const;
 export type PublicRole = (typeof PUBLIC_ROLES)[number];
 
 export function isPublicRole(value: string): value is PublicRole {
@@ -27,11 +27,17 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     dashboard: '/dashboard',
     description: 'Full system access and management.',
   },
+  author: {
+    label: 'Author',
+    prefix: 'AUT',
+    dashboard: '/dashboard',
+    description: 'Create, upload and submit manuscripts for editorial review.',
+  },
   editor: {
     label: 'Editor',
     prefix: 'EDT',
     dashboard: '/editor/dashboard',
-    description: 'Create, upload, edit and submit documents for review.',
+    description: 'Review submissions, assign reviewers and route manuscripts to publishers.',
   },
   reviewer: {
     label: 'Reviewer',
@@ -43,13 +49,13 @@ export const ROLE_META: Record<Role, RoleMeta> = {
     label: 'Publisher',
     prefix: 'PUB',
     dashboard: '/publisher/dashboard',
-    description: 'Publish approved documents after payment verification.',
+    description: 'Publish approved manuscripts that are ready for release.',
   },
   user: {
     label: 'Reader',
     prefix: 'USR',
     dashboard: '/user/dashboard',
-    description: 'Browse, purchase and access published documents.',
+    description: 'Browse and access published documents.',
   },
 };
 

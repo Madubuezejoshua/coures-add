@@ -1,13 +1,13 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Sparkles, Pencil, ShieldCheck, Globe, BookOpen, ArrowRight, type LucideIcon } from 'lucide-react';
+import { Sparkles, Pencil, ShieldCheck, Globe, PenTool, ArrowRight, type LucideIcon } from 'lucide-react';
 import { PUBLIC_ROLES, ROLE_META, type PublicRole } from '../lib/roles';
 
 const ICONS: Record<PublicRole, LucideIcon> = {
+  author: PenTool,
   editor: Pencil,
   reviewer: ShieldCheck,
   publisher: Globe,
-  user: BookOpen,
 };
 
 export const RoleSelectionPage: React.FC = () => {
@@ -31,7 +31,7 @@ export const RoleSelectionPage: React.FC = () => {
           <h1 className="text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
             Join <span className="serif-accent text-brand-600">DocReview</span>
           </h1>
-          <p className="mt-3 text-slate-500">Choose how you'd like to use the platform. You can request a different role later from an administrator.</p>
+          <p className="mt-3 text-slate-500">Choose how you'd like to use the platform. Authors submit manuscripts, editors route them, reviewers provide feedback, and publishers release approved work.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

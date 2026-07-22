@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { FileText, LogOut } from 'lucide-react';
 
 export const HeaderNav: React.FC = () => {
-  const { user, role, logout } = useAuth();
+  const { role, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -15,9 +15,11 @@ export const HeaderNav: React.FC = () => {
   const getRoleLabel = () => {
     const labels: Record<string, string> = {
       admin: 'Administrator',
-      contributor: 'Contributor',
+      author: 'Author',
+      editor: 'Editor',
       reviewer: 'Reviewer',
       publisher: 'Publisher',
+      user: 'Reader',
     };
     return labels[role as string] || 'User';
   };

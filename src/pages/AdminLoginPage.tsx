@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
 import { LogIn, AlertCircle, Loader } from 'lucide-react';
+import { authService } from '../services/authService';
 
 export const AdminLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,30 +16,20 @@ export const AdminLoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const result = await authService.signIn(email, password);
+      if (!result.success) {
+        setError(result.error || 'Failed to login');
+        return;
+      }
 
-      const adminDocRef = doc(db, 'admin', user.uid);
-      const adminDoc = await getDoc(adminDocRef);
-
-      if (!adminDoc.exists()) {
-        await auth.signOut();
+      if (result.role !== 'admin') {
         setError('This account does not have admin privileges');
-        setLoading(false);
         return;
       }
 
       navigate('/dashboard');
-    } catch (err: any) {
-      let errorMessage = 'Failed to login';
-      if (err.code === 'auth/user-not-found') {
-        errorMessage = 'Admin account not found';
-      } else if (err.code === 'auth/wrong-password') {
-        errorMessage = 'Invalid password';
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address';
-      }
-      setError(errorMessage);
+    } catch {
+      setError('Failed to login');
     } finally {
       setLoading(false);
     }

@@ -39,7 +39,7 @@ router.post('/:id/suspend', ah((req, res) => setStatus(req, res, 'suspended', 'U
 
 router.post('/:id/role', ah(async (req, res) => {
   const role = req.body?.role;
-  if (!['editor', 'reviewer', 'publisher', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!['admin', 'author', 'editor', 'reviewer', 'publisher', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   const { rows } = await query('SELECT * FROM users WHERE id=$1', [req.params.id]);
   const u = rows[0];
   if (!u) return res.status(404).json({ error: 'User not found' });
