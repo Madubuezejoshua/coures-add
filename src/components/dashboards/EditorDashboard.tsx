@@ -1,111 +1,240 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { documentService, Document } from '../../services/documentService';
 import { DashboardShell } from '../layout/DashboardShell';
-import { DocumentCard } from '../DocumentCard';
-import { UploadTab } from '../editor-tabs/UploadTab';
-import { CorrectionsTab } from '../editor-tabs/CorrectionsTab';
-import { paymentService, PUBLICATION_FEE } from '../../services/paymentService';
-import { Spinner, EmptyState, Button, Modal, Notice, type TabItem } from '../ui';
-import { Upload, AlertCircle, FileText, CreditCard } from 'lucide-react';
+import { Spinner, EmptyState, Button, Notice, Modal, FormField, Select, Textarea, type TabItem } from '../ui';
+import { FileText, Users, Send, CheckCircle2, ArrowRightCircle } from 'lucide-react';
 
-type Tab = 'upload' | 'corrections' | 'my-documents';
+type Tab = 'queue' | 'reviewing' | 'ready';
+
+type ReviewerOption = { id: string; full_name: string; email: string };
+
+const statusLabel = (status: Document['status']) => {
+  switch (status) {
+    case 'submitted': return 'New submission';
+    case 'under_review': return 'Under review';
+    case 'needs_correction': return 'Needs revision';
+    case 'approved': return 'Approved';
+    case 'ready_for_publishing': return 'Ready for publisher';
+    default: return status;
+  }
+};
 
 export const EditorDashboard: React.FC = () => {
-  const { user, displayName } = useAuth();
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [reviewers, setReviewers] = useState<ReviewerOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>('upload');
-  const [payDoc, setPayDoc] = useState<Document | null>(null);
-  const [paying, setPaying] = useState(false);
-  const [payError, setPayError] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('queue');
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [selectedReviewer, setSelectedReviewer] = useState('');
+  const [notes, setNotes] = useState('');
+  const [actioning, setActioning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDocuments();
+    loadData();
   }, [user?.uid]);
 
-  const loadDocuments = async () => {
+  const loadData = async () => {
     if (!user?.uid) return;
     try {
       setLoading(true);
-      setDocuments(await documentService.getContributorDocuments(user.uid));
+      const [queue, reviewerList] = await Promise.all([
+        documentService.getEditorQueue(),
+        documentService.getReviewers(),
+      ]);
+      setDocuments(queue);
+      setReviewers(reviewerList);
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error('Error loading editor queue:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePay = async () => {
-    if (!payDoc || !user) return;
-    setPaying(true);
-    setPayError('');
-    const result = await paymentService.payPublicationFee(payDoc, user.uid, displayName || user.email || 'Editor');
-    setPaying(false);
-    if (result.success) {
-      setPayDoc(null);
-      loadDocuments();
-    } else {
-      setPayError(result.error || 'Payment failed');
+  const groupedDocuments = useMemo(() => {
+    const queue = documents.filter((doc) => doc.status === 'submitted');
+    const reviewing = documents.filter((doc) => doc.status === 'under_review');
+    const revisions = documents.filter((doc) => doc.status === 'needs_correction');
+    const ready = documents.filter((doc) => doc.status === 'approved' || doc.status === 'ready_for_publishing');
+    return { queue, reviewing, revisions, ready };
+  }, [documents]);
+
+  const tabs: TabItem<Tab>[] = [
+    { id: 'queue', label: 'New Submissions', icon: FileText, count: groupedDocuments.queue.length },
+    { id: 'reviewing', label: 'In Review', icon: Users, count: groupedDocuments.reviewing.length + groupedDocuments.revisions.length },
+    { id: 'ready', label: 'Ready to Publish', icon: CheckCircle2, count: groupedDocuments.ready.length },
+  ];
+
+  const openAssignModal = (doc: Document) => {
+    setSelectedDocId(doc.id || null);
+    setSelectedReviewer(doc.reviewerId || '');
+    setNotes('');
+    setMessage(null);
+  };
+
+  const handleAssignReviewer = async () => {
+    if (!selectedDocId || !selectedReviewer) {
+      setMessage('Choose a reviewer before continuing.');
+      return;
+    }
+
+    const reviewer = reviewers.find((item) => item.id === selectedReviewer);
+    if (!reviewer) {
+      setMessage('The selected reviewer is no longer available.');
+      return;
+    }
+
+    try {
+      setActioning(true);
+      await documentService.assignReviewer(selectedDocId, reviewer.id, reviewer.full_name);
+      await loadData();
+      setSelectedDocId(null);
+      setSelectedReviewer('');
+      setNotes('');
+      setMessage(null);
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to assign reviewer.');
+    } finally {
+      setActioning(false);
     }
   };
 
-  const tabs: TabItem<Tab>[] = [
-    { id: 'upload', label: 'Upload', icon: Upload },
-    { id: 'corrections', label: 'Corrections', icon: AlertCircle },
-    { id: 'my-documents', label: 'My Documents', icon: FileText, count: documents.length },
-  ];
+  const handleReturnToAuthor = async (doc: Document) => {
+    if (!doc.id) return;
+    try {
+      setActioning(true);
+      await documentService.returnToAuthor(doc.id, notes || undefined);
+      await loadData();
+      setSelectedDocId(null);
+      setNotes('');
+      setMessage(null);
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to return the manuscript.');
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  const handleForwardToPublisher = async (doc: Document) => {
+    if (!doc.id) return;
+    try {
+      setActioning(true);
+      await documentService.forwardToPublisher(doc.id);
+      await loadData();
+      setMessage(null);
+    } catch (error: any) {
+      setMessage(error?.message || 'Unable to forward the manuscript.');
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  const renderList = (docs: Document[], emptyTitle: string, emptyDescription: string) => {
+    if (docs.length === 0) {
+      return <EmptyState icon={FileText} title={emptyTitle} description={emptyDescription} />;
+    }
+
+    return (
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {docs.map((doc) => (
+          <div key={doc.id} className="rounded-2xl border border-cream-200 bg-white p-5 shadow-card">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-semibold text-ink">{doc.title}</h3>
+                <p className="mt-1 line-clamp-2 text-sm text-slate-500">{doc.description || doc.content.substring(0, 100)}</p>
+              </div>
+              <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{statusLabel(doc.status)}</span>
+            </div>
+            <div className="space-y-1.5 text-sm text-slate-500">
+              <p className="flex items-center gap-2"><FileText className="h-4 w-4" /> {doc.contributorName}</p>
+              {doc.reviewerName && <p className="flex items-center gap-2"><Users className="h-4 w-4" /> {doc.reviewerName}</p>}
+              {doc.reviewComments && <p className="text-slate-600">Review: {doc.reviewComments}</p>}
+              {doc.correctionNotes && <p className="text-amber-700">Revision note: {doc.correctionNotes}</p>}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => openAssignModal(doc)}><Users className="h-4 w-4" /> Assign reviewer</Button>
+              {doc.status === 'needs_correction' && (
+                <Button size="sm" variant="outline" onClick={() => { setSelectedDocId(doc.id || null); setNotes(doc.correctionNotes || ''); setMessage(null); handleReturnToAuthor(doc); }}><ArrowRightCircle className="h-4 w-4" /> Return to author</Button>
+              )}
+              {doc.status === 'approved' && (
+                <Button size="sm" variant="success" onClick={() => handleForwardToPublisher(doc)}><Send className="h-4 w-4" /> Forward to publisher</Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <DashboardShell title="Editor Dashboard" subtitle="Review submissions, assign reviewers and route manuscripts" tabs={tabs} active={activeTab} onChange={setActiveTab}>
-      {activeTab === 'upload' && <UploadTab onUploadComplete={() => { loadDocuments(); setActiveTab('my-documents'); }} />}
-      {activeTab === 'corrections' && <CorrectionsTab onCorrection={loadDocuments} />}
-      {activeTab === 'my-documents' && (
+    <DashboardShell title="Editor Dashboard" subtitle="Manage submissions, assign reviewers, and route manuscripts through the workflow" tabs={tabs} active={activeTab} onChange={setActiveTab}>
+      {message && <Notice tone="danger" className="mb-4">{message}</Notice>}
+
+      {activeTab === 'queue' && (
         <div className="space-y-5">
           <div>
-            <h2 className="text-xl font-bold text-ink">My Documents</h2>
-            <p className="text-sm text-slate-500">{documents.length} document{documents.length === 1 ? '' : 's'}</p>
+            <h2 className="text-xl font-bold text-ink">New submissions</h2>
+            <p className="text-sm text-slate-500">Assign reviewers and move manuscripts into the review stage.</p>
           </div>
-          {loading ? (
-            <Spinner label="Loading your documents…" />
-          ) : documents.length > 0 ? (
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              {documents.map((doc) => (
-                <DocumentCard
-                  key={doc.id}
-                  document={doc}
-                  isOwner
-                  onPay={doc.status === 'approved' ? () => { setPayDoc(doc); setPayError(''); } : undefined}
-                  payLabel={`Pay $${PUBLICATION_FEE} to publish`}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState icon={FileText} title="No documents yet" description="Upload your first document to start the review workflow." action={<Button onClick={() => setActiveTab('upload')}>Upload a document</Button>} />
-          )}
+          {loading ? <Spinner label="Loading editor queue…" /> : renderList(groupedDocuments.queue, 'No new submissions', 'New manuscripts will appear here as soon as authors submit them.')}
         </div>
       )}
 
-      {payDoc && (
+      {activeTab === 'reviewing' && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-xl font-bold text-ink">Manuscripts in review</h2>
+            <p className="text-sm text-slate-500">Track manuscripts under review and those waiting for author revision.</p>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Under review</h3>
+              {loading ? <Spinner label="Loading review queue…" /> : renderList(groupedDocuments.reviewing, 'No manuscripts under review', 'Assigned manuscripts will appear here once a reviewer has been selected.')}
+            </div>
+            <div>
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Needs revision</h3>
+              {loading ? <Spinner label="Loading revisions…" /> : renderList(groupedDocuments.revisions, 'No revision requests', 'Manuscripts returned to the author for corrections will appear here.')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'ready' && (
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-xl font-bold text-ink">Ready for publisher</h2>
+            <p className="text-sm text-slate-500">Forward approved manuscripts to the publisher.</p>
+          </div>
+          {loading ? <Spinner label="Loading publish queue…" /> : renderList(groupedDocuments.ready, 'No manuscripts ready', 'Approved manuscripts will appear here once the editor is ready to hand them off.')}
+        </div>
+      )}
+
+      {selectedDocId && (
         <Modal
-          onClose={() => setPayDoc(null)}
-          title="Pay publication fee"
-          icon={<CreditCard className="h-5 w-5 text-brand-700" />}
-          size="sm"
+          onClose={() => { setSelectedDocId(null); setSelectedReviewer(''); setNotes(''); setMessage(null); }}
+          title="Assign Reviewer"
+          icon={<Users className="h-5 w-5 text-brand-700" />}
+          size="md"
           footer={
             <>
-              <Button variant="outline" fullWidth onClick={() => setPayDoc(null)} disabled={paying}>Cancel</Button>
-              <Button fullWidth loading={paying} onClick={handlePay}>Pay ${PUBLICATION_FEE}</Button>
+              <Button variant="outline" fullWidth onClick={() => { setSelectedDocId(null); setSelectedReviewer(''); setNotes(''); setMessage(null); }} disabled={actioning}>Cancel</Button>
+              <Button fullWidth loading={actioning} onClick={handleAssignReviewer} disabled={actioning || !selectedReviewer}>Assign reviewer</Button>
             </>
           }
         >
           <div className="space-y-4">
-            <div className="rounded-xl bg-cream p-4 text-sm">
-              <p className="font-semibold text-ink">{payDoc.title}</p>
-              <p className="mt-1 text-slate-500">Publication fee: <span className="font-semibold text-ink">${PUBLICATION_FEE}</span></p>
-            </div>
-            <Notice tone="info">Simulated payment. On confirming, the document moves to <strong>Ready to Publish</strong>.</Notice>
-            {payError && <Notice tone="danger">{payError}</Notice>}
+            <FormField label="Reviewer" required>
+              <Select value={selectedReviewer} onChange={(e) => setSelectedReviewer(e.target.value)}>
+                <option value="">Choose a reviewer…</option>
+                {reviewers.map((reviewer) => <option key={reviewer.id} value={reviewer.id}>{reviewer.full_name} ({reviewer.email})</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Editor note">
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Optional instruction for the reviewer" />
+            </FormField>
+            {message && <Notice tone="danger">{message}</Notice>}
           </div>
         </Modal>
       )}

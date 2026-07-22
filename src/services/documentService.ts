@@ -63,6 +63,12 @@ export const documentService = {
   getSubmittedDocuments(): Promise<Document[]> {
     return api.get('/documents/review-queue');
   },
+  getEditorQueue(): Promise<Document[]> {
+    return api.get('/documents/editor-queue');
+  },
+  getReviewers(): Promise<Array<{ id: string; full_name: string; email: string }>> {
+    return api.get('/documents/reviewers');
+  },
   getReviewerDocuments(_uid: string): Promise<Document[]> {
     return api.get('/documents/my-reviews');
   },
@@ -88,6 +94,18 @@ export const documentService = {
 
   claimDocument(documentId: string, _reviewerId?: string, _reviewerName?: string): Promise<void> {
     return api.post(`/documents/${documentId}/claim`);
+  },
+
+  assignReviewer(documentId: string, reviewerId: string, reviewerName: string): Promise<void> {
+    return api.post(`/documents/${documentId}/assign-reviewer`, { reviewerId, reviewerName });
+  },
+
+  returnToAuthor(documentId: string, comments?: string): Promise<void> {
+    return api.post(`/documents/${documentId}/return-to-author`, { comments });
+  },
+
+  forwardToPublisher(documentId: string): Promise<void> {
+    return api.post(`/documents/${documentId}/forward-to-publisher`);
   },
 
   resubmitDocument(documentId: string, content: string): Promise<void> {

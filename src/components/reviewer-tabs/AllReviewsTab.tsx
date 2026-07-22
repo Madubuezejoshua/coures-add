@@ -1,47 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { documentService, Document } from '../../services/documentService';
-import { FileSearch, Lock, Paperclip } from 'lucide-react';
+import { ReviewModal } from '../modals/ReviewModal';
+import { FileSearch, Eye, Paperclip } from 'lucide-react';
 import { Card, CardBody, Button, Spinner, EmptyState, StatusBadge } from '../ui';
 
-export const AllReviewsTab: React.FC<{ onClaim: () => void }> = ({ onClaim }) => {
-  const { user, displayName } = useAuth();
+export const AllReviewsTab: React.FC<{ onClaim?: () => void }> = ({ onClaim }) => {
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState<string | null>(null);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
   useEffect(() => {
     loadDocuments();
-  }, []);
+  }, [user?.uid]);
 
   const loadDocuments = async () => {
+    if (!user?.uid) return;
     try {
       setLoading(true);
-      const docs = await documentService.getSubmittedDocuments();
-      setDocuments(docs);
+      const docs = await documentService.getReviewerDocuments(user.uid);
+      setDocuments(docs.filter((doc) => doc.status === 'under_review' || doc.status === 'needs_correction'));
     } catch (error) {
       console.error('Error loading documents:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleClaimDocument = async (docId: string) => {
-    if (!user) return;
-
-    try {
-      setClaiming(docId);
-      await documentService.claimDocument(
-        docId,
-        user.uid,
-        displayName || user.email || 'Unknown'
-      );
-      await loadDocuments();
-      onClaim();
-    } catch (error) {
-      console.error('Error claiming document:', error);
-    } finally {
-      setClaiming(null);
     }
   };
 
@@ -58,8 +41,8 @@ export const AllReviewsTab: React.FC<{ onClaim: () => void }> = ({ onClaim }) =>
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="mb-1 text-2xl font-bold tracking-tight text-slate-900">Available for Review</h2>
-        <p className="text-sm text-slate-500">{documents.length} documents waiting for review</p>
+        <h2 className="mb-1 text-2xl font-bold tracking-tight text-slate-900">Assigned Reviews</h2>
+        <p className="text-sm text-slate-500">{documents.length} manuscripts currently assigned to you</p>
       </div>
 
       {documents.length > 0 ? (
@@ -99,18 +82,10 @@ export const AllReviewsTab: React.FC<{ onClaim: () => void }> = ({ onClaim }) =>
                 <Button
                   fullWidth
                   size="sm"
-                  loading={claiming === doc.id}
-                  disabled={claiming === doc.id}
-                  onClick={() => handleClaimDocument(doc.id!)}
+                  onClick={() => doc.id && setSelectedDocId(doc.id)}
                 >
-                  {claiming === doc.id ? (
-                    'Claiming...'
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4" />
-                      Claim for Review
-                    </>
-                  )}
+                  <Eye className="h-4 w-4" />
+                  Open Review
                 </Button>
               </CardBody>
             </Card>
@@ -119,8 +94,19 @@ export const AllReviewsTab: React.FC<{ onClaim: () => void }> = ({ onClaim }) =>
       ) : (
         <EmptyState
           icon={FileSearch}
-          title="No documents available for review"
-          description="Newly submitted documents will appear here for you to claim."
+          title="No assigned reviews"
+          description="Manuscripts assigned to you by the editor will appear here."
+        />
+      )}
+
+      {selectedDocId && (
+        <ReviewModal
+          documentId={selectedDocId}
+          onClose={() => setSelectedDocId(null)}
+          onSave={() => {
+            loadDocuments();
+            onClaim?.();
+          }}
         />
       )}
     </div>

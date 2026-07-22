@@ -5,12 +5,16 @@ import { logActivity, notify, notifyAdmins, notifyRole, ah } from '../lib/helper
 import { doc as serDoc } from '../lib/serialize.js';
 
 const router = Router();
-router.use(authMiddleware);
 
 const list = async (sql, params = []) => (await query(sql, params)).rows.map(serDoc);
 const getDoc = async (id) => (await query('SELECT * FROM documents WHERE id=$1', [id])).rows[0];
 
 // ---- reads -----------------------------------------------------------------
+router.get('/published', ah(async (_req, res) =>
+  res.json(await list(`SELECT * FROM documents WHERE status='published' ORDER BY published_at DESC NULLS LAST`))));
+
+router.use(authMiddleware);
+
 router.get('/mine', ah(async (req, res) =>
   res.json(await list('SELECT * FROM documents WHERE contributor_id=$1 ORDER BY created_at DESC', [req.user.id]))));
 
@@ -19,6 +23,14 @@ router.get('/corrections', ah(async (req, res) =>
 
 router.get('/review-queue', requireRole('editor', 'reviewer', 'admin'), ah(async (_req, res) =>
   res.json(await list(`SELECT * FROM documents WHERE status='submitted' ORDER BY created_at`))));
+
+router.get('/editor-queue', requireRole('editor', 'admin'), ah(async (_req, res) =>
+  res.json(await list(`SELECT * FROM documents WHERE status IN ('submitted','under_review','needs_correction','approved','ready_for_publishing') ORDER BY updated_at DESC`))));
+
+router.get('/reviewers', requireRole('editor', 'admin'), ah(async (_req, res) => {
+  const { rows } = await query(`SELECT id, full_name, email FROM users WHERE role='reviewer' AND status='active' ORDER BY full_name ASC`);
+  res.json(rows);
+}));
 
 router.get('/my-reviews', requireRole('reviewer'), ah(async (req, res) =>
   res.json(await list('SELECT * FROM documents WHERE reviewer_id=$1 ORDER BY updated_at DESC', [req.user.id]))));
@@ -37,9 +49,6 @@ router.get('/ready', requireRole('publisher', 'admin'), ah(async (req, res) => {
 
   res.json(await list(`SELECT * FROM documents WHERE status='ready_for_publishing' ORDER BY updated_at DESC`));
 }));
-
-router.get('/published', ah(async (_req, res) =>
-  res.json(await list(`SELECT * FROM documents WHERE status='published' ORDER BY published_at DESC NULLS LAST`))));
 
 router.get('/all', requireRole('admin'), ah(async (_req, res) =>
   res.json(await list('SELECT * FROM documents ORDER BY created_at DESC'))));
@@ -97,12 +106,25 @@ router.post('/', requireRole('author'), requireActive, ah(async (req, res) => {
   res.json(serDoc(rows[0]));
 }));
 
-router.post('/:id/claim', requireRole('reviewer'), requireActive, ah(async (req, res) => {
+router.post('/:id/assign-reviewer', requireRole('editor', 'admin'), requireActive, ah(async (req, res) => {
+  const { reviewerId, reviewerName } = req.body || {};
+  if (!reviewerId || !reviewerName) return res.status(400).json({ error: 'Reviewer details are required' });
+
   const d = await getDoc(req.params.id);
-  if (!d || d.status !== 'submitted') return res.status(400).json({ error: 'Document is not available to claim' });
-  await query(`UPDATE documents SET status='under_review', reviewer_id=$1, reviewer_name=$2, updated_at=now() WHERE id=$3`,
-    [req.user.id, req.user.full_name, d.id]);
-  await logActivity('REVIEW_CLAIMED', req.user.full_name, req.user.id, 'reviewer', `Claimed "${d.title}"`, d.title, d.id, d.id);
+  if (!d) return res.status(404).json({ error: 'Not found' });
+  if (!['submitted', 'under_review', 'needs_correction'].includes(d.status)) {
+    return res.status(400).json({ error: 'Only submissions awaiting review can be assigned to a reviewer' });
+  }
+
+  await query(
+    `UPDATE documents
+     SET reviewer_id=$1, reviewer_name=$2, status='under_review', updated_at=now()
+     WHERE id=$3`,
+    [reviewerId, reviewerName, d.id]
+  );
+
+  await logActivity('REVIEWER_ASSIGNED', req.user.full_name, req.user.id, req.user.role, `Assigned reviewer ${reviewerName} to "${d.title}"`, d.title, d.id, d.id);
+  await notify(reviewerId, 'REVIEW_ASSIGNED', 'New manuscript assigned', `You have been assigned "${d.title}" for review.`, '/reviewer/dashboard');
   res.json({ success: true });
 }));
 
@@ -129,11 +151,22 @@ router.post('/:id/decide', requireRole('reviewer'), requireActive, ah(async (req
   const col = decision === 'approve' ? 'review_comments' : decision === 'reject' ? 'rejection_reason' : 'correction_notes';
   await query(`UPDATE documents SET status=$1, ${col}=$2, updated_at=now() WHERE id=$3`, [status, comments, d.id]);
   await logActivity(`REVIEW_${decision.toUpperCase()}`, req.user.full_name, req.user.id, req.user.role, `${decision} "${d.title}"`, d.title, d.id, d.id);
-  if (d.contributor_id) {
-    const t = decision === 'approve' ? 'Document approved' : decision === 'reject' ? 'Document rejected' : 'Revision requested';
-    await notify(d.contributor_id, `REVIEW_${decision.toUpperCase()}`, t, `"${d.title}": see the reviewer's notes.`, '/dashboard');
-  }
   await notifyRole('editor', `REVIEW_${decision.toUpperCase()}`, 'Review completed', `The review for "${d.title}" is now ready for editorial action.`, '/editor/dashboard');
+  res.json({ success: true });
+}));
+
+router.post('/:id/return-to-author', requireRole('editor', 'admin'), requireActive, ah(async (req, res) => {
+  const { comments } = req.body || {};
+  const d = await getDoc(req.params.id);
+  if (!d) return res.status(404).json({ error: 'Not found' });
+  if (!['needs_correction'].includes(d.status)) return res.status(400).json({ error: 'Only manuscripts needing revision can be returned to the author' });
+
+  const note = String(comments || d.correction_notes || '').trim();
+  await query(`UPDATE documents SET correction_notes=$1, status='needs_correction', updated_at=now() WHERE id=$2`, [note || null, d.id]);
+  if (d.contributor_id) {
+    await notify(d.contributor_id, 'DOCUMENT_RETURNED_FOR_REVISION', 'Revision requested', `The editor has returned "${d.title}" for revisions.`, '/dashboard');
+  }
+  await logActivity('DOCUMENT_RETURNED_TO_AUTHOR', req.user.full_name, req.user.id, req.user.role, `Returned "${d.title}" to the author`, d.title, d.id, d.id);
   res.json({ success: true });
 }));
 
@@ -142,9 +175,20 @@ router.post('/:id/resubmit', requireRole('author'), requireActive, ah(async (req
   const d = await getDoc(req.params.id);
   if (!d || d.contributor_id !== req.user.id || !['rejected', 'needs_correction'].includes(d.status))
     return res.status(400).json({ error: 'Not allowed' });
-  await query(`UPDATE documents SET status='submitted', content=$1, updated_at=now() WHERE id=$2`, [content ?? d.content, d.id]);
+  await query(`UPDATE documents SET status='submitted', reviewer_id=NULL, reviewer_name=NULL, review_comments=NULL, rejection_reason=NULL, correction_notes=NULL, content=$1, updated_at=now() WHERE id=$2`, [content ?? d.content, d.id]);
   await logActivity('DOCUMENT_RESUBMITTED', req.user.full_name, req.user.id, req.user.role, `Resubmitted "${d.title}"`, d.title, d.id, d.id);
-  if (d.reviewer_id) await notify(d.reviewer_id, 'DOCUMENT_RESUBMITTED', 'Document resubmitted', `"${d.title}" was corrected and resubmitted.`, '/reviewer/dashboard');
+  await notifyRole('editor', 'DOCUMENT_RESUBMITTED', 'Manuscript resubmitted', `"${d.title}" was corrected and is ready for reassignment.`, '/editor/dashboard');
+  res.json({ success: true });
+}));
+
+router.post('/:id/forward-to-publisher', requireRole('editor', 'admin'), requireActive, ah(async (req, res) => {
+  const d = await getDoc(req.params.id);
+  if (!d) return res.status(404).json({ error: 'Not found' });
+  if (d.status !== 'approved') return res.status(400).json({ error: 'Only approved manuscripts can be forwarded to the publisher' });
+
+  await query(`UPDATE documents SET status='ready_for_publishing', updated_at=now() WHERE id=$1`, [d.id]);
+  await logActivity('DOCUMENT_FORWARDED_TO_PUBLISHER', req.user.full_name, req.user.id, req.user.role, `Forwarded "${d.title}" to publisher`, d.title, d.id, d.id);
+  await notifyRole('publisher', 'DOCUMENT_READY_FOR_PUBLISHING', 'Manuscript ready for publishing', `"${d.title}" is ready for publication.`, '/publisher/dashboard');
   res.json({ success: true });
 }));
 
