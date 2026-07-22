@@ -65,8 +65,8 @@ export const ContributorSignUpPage: React.FC = () => {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-white text-center mb-2">Contributor Account</h1>
-          <p className="text-slate-400 text-center mb-8">Sign up to start contributing</p>
+          <h1 className="text-3xl font-bold text-white text-center mb-2">Author Account</h1>
+          <p className="text-slate-400 text-center mb-8">Sign up to start submitting manuscripts</p>
 
           <form onSubmit={handleSignUp} className="space-y-4">
             <div>
@@ -85,7 +85,7 @@ export const ContributorSignUpPage: React.FC = () => {
                   required
                 />
               </div>
-              <p className="text-xs text-slate-500 mt-1">Enter your contributor access ID (starts with CNT-)</p>
+              <p className="text-xs text-slate-500 mt-1">Enter your author access ID (starts with AUT-)</p>
             </div>
 
             <div>

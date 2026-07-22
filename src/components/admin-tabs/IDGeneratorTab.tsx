@@ -5,7 +5,7 @@ import { Key, Loader, CheckCircle, Copy } from 'lucide-react';
 
 export const IDGeneratorTab: React.FC = () => {
   const { user, displayName } = useAuth();
-  const [role, setRole] = useState<'contributor' | 'reviewer' | 'publisher'>('contributor');
+  const [role, setRole] = useState<'author' | 'reviewer' | 'publisher'>('author');
   const [loading, setLoading] = useState(false);
   const [generatedId, setGeneratedId] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -53,15 +53,15 @@ export const IDGeneratorTab: React.FC = () => {
             <label className="block text-sm font-medium text-slate-300 mb-3">Select Role</label>
             <div className="grid grid-cols-3 gap-3">
               <button
-                onClick={() => setRole('contributor')}
+                onClick={() => setRole('author')}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  role === 'contributor'
+                  role === 'author'
                     ? 'bg-purple-600/20 border-purple-500 text-blue-300'
                     : 'bg-slate-800/50 border-slate-600/50 text-slate-400 hover:border-slate-500'
                 }`}
               >
-                <div className="font-semibold">Contributor</div>
-                <div className="text-xs mt-1">CNT-XXXXXX</div>
+                <div className="font-semibold">Author</div>
+                <div className="text-xs mt-1">AUT-XXXXXX</div>
               </button>
               <button
                 onClick={() => setRole('reviewer')}

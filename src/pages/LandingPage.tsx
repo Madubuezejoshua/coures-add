@@ -111,7 +111,7 @@ export const LandingPage: React.FC = () => {
           <SectionHeading kicker="Perfect for everyone" plain="Built for" accent="every role" />
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: PenLine, title: 'Editors', body: 'Create, upload and submit documents for review.' },
+              { icon: PenLine, title: 'Authors', body: 'Create, upload and submit manuscripts for review.' },
               { icon: ShieldCheck, title: 'Reviewers', body: 'Review, give feedback and approve submissions.' },
               { icon: Globe, title: 'Publishers', body: 'Publish approved documents after payment.' },
               { icon: BookOpen, title: 'Readers', body: 'Browse, purchase and read published work.' },

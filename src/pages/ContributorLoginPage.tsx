@@ -50,8 +50,8 @@ export const ContributorLoginPage: React.FC = () => {
             </div>
           </div>
 
-          <h1 className="text-3xl font-bold text-white text-center mb-2">Contributor Login</h1>
-          <p className="text-slate-400 text-center mb-8">Sign in to your contributor account</p>
+          <h1 className="text-3xl font-bold text-white text-center mb-2">Author Login</h1>
+          <p className="text-slate-400 text-center mb-8">Sign in to your author account</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

@@ -6,7 +6,7 @@ export const GeneratedIDsTab: React.FC = () => {
   const [accessIds, setAccessIds] = useState<AccessID[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | 'used' | 'unused'>('all');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'contributor' | 'reviewer' | 'publisher'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'author' | 'reviewer' | 'publisher'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<AccessID | null>(null);
@@ -124,7 +124,7 @@ export const GeneratedIDsTab: React.FC = () => {
             className="px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">All Roles</option>
-            <option value="contributor">Contributors</option>
+            <option value="author">Authors</option>
             <option value="reviewer">Reviewers</option>
             <option value="publisher">Publishers</option>
           </select>

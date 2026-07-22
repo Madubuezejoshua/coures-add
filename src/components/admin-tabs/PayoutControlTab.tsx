@@ -115,7 +115,7 @@ export const PayoutControlTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Payout Control" description="Manage contributor and reviewer payouts" />
+      <PageHeader title="Payout Control" description="Manage author and reviewer payouts" />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard icon={DollarSign} tone="brand" label="Total Requested" value={`$${totalAmount.toFixed(2)}`} />
