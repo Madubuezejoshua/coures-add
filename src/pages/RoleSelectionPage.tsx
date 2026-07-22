@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Sparkles, Pencil, ShieldCheck, Globe, PenTool, ArrowRight, type LucideIcon } from 'lucide-react';
+import { Sparkles, Pencil, ShieldCheck, Globe, PenTool, User, ArrowRight, type LucideIcon } from 'lucide-react';
 import { PUBLIC_ROLES, ROLE_META, type PublicRole } from '../lib/roles';
 
 const ICONS: Record<PublicRole, LucideIcon> = {
@@ -8,6 +8,7 @@ const ICONS: Record<PublicRole, LucideIcon> = {
   editor: Pencil,
   reviewer: ShieldCheck,
   publisher: Globe,
+  user: User,
 };
 
 export const RoleSelectionPage: React.FC = () => {

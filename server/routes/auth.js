@@ -5,7 +5,7 @@ import { signToken, publicUser, authMiddleware } from '../lib/auth.js';
 import { nextRegistrationNumber, logActivity, notifyAdmins, ah } from '../lib/helpers.js';
 
 const router = Router();
-const PUBLIC_ROLES = ['author', 'editor', 'reviewer', 'publisher'];
+const PUBLIC_ROLES = ['author', 'editor', 'reviewer', 'publisher', 'user'];
 
 router.post('/register', ah(async (req, res) => {
   const { role, fullName, email, password } = req.body || {};

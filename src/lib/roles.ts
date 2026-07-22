@@ -4,7 +4,7 @@ export type Role = 'admin' | 'author' | 'editor' | 'reviewer' | 'publisher' | 'u
 export type AccountStatus = 'pending' | 'active' | 'suspended' | 'rejected';
 
 /** Roles a member of the public is allowed to self-register as (never admin). */
-export const PUBLIC_ROLES = ['author', 'editor', 'reviewer', 'publisher'] as const;
+export const PUBLIC_ROLES = ['author', 'editor', 'reviewer', 'publisher', 'user'] as const;
 export type PublicRole = (typeof PUBLIC_ROLES)[number];
 
 export function isPublicRole(value: string): value is PublicRole {
