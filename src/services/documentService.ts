@@ -69,6 +69,9 @@ export const documentService = {
   getReviewers(): Promise<Array<{ id: string; full_name: string; email: string }>> {
     return api.get('/documents/reviewers');
   },
+  getPublishers(): Promise<Array<{ id: string; full_name: string; email: string }>> {
+    return api.get('/documents/publishers');
+  },
   getReviewerDocuments(_uid: string): Promise<Document[]> {
     return api.get('/documents/my-reviews');
   },

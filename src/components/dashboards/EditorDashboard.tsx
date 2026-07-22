@@ -7,7 +7,7 @@ import { FileText, Users, Send, CheckCircle2, ArrowRightCircle } from 'lucide-re
 
 type Tab = 'queue' | 'reviewing' | 'ready';
 
-type ReviewerOption = { id: string; full_name: string; email: string };
+type UserOption = { id: string; full_name: string; email: string };
 
 const statusLabel = (status: Document['status']) => {
   switch (status) {
@@ -23,11 +23,14 @@ const statusLabel = (status: Document['status']) => {
 export const EditorDashboard: React.FC = () => {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [reviewers, setReviewers] = useState<ReviewerOption[]>([]);
+  const [reviewers, setReviewers] = useState<UserOption[]>([]);
+  const [publishers, setPublishers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('queue');
+  const [modalMode, setModalMode] = useState<'reviewer' | 'publisher' | null>(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [selectedReviewer, setSelectedReviewer] = useState('');
+  const [selectedPublisher, setSelectedPublisher] = useState('');
   const [notes, setNotes] = useState('');
   const [actioning, setActioning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -40,12 +43,14 @@ export const EditorDashboard: React.FC = () => {
     if (!user?.uid) return;
     try {
       setLoading(true);
-      const [queue, reviewerList] = await Promise.all([
+      const [queue, reviewerList, publisherList] = await Promise.all([
         documentService.getEditorQueue(),
         documentService.getReviewers(),
+        documentService.getPublishers(),
       ]);
       setDocuments(queue);
       setReviewers(reviewerList);
+      setPublishers(publisherList);
     } catch (error) {
       console.error('Error loading editor queue:', error);
     } finally {
@@ -70,6 +75,17 @@ export const EditorDashboard: React.FC = () => {
   const openAssignModal = (doc: Document) => {
     setSelectedDocId(doc.id || null);
     setSelectedReviewer(doc.reviewerId || '');
+    setSelectedPublisher(doc.publisherId || '');
+    setModalMode('reviewer');
+    setNotes('');
+    setMessage(null);
+  };
+
+  const openAssignPublisherModal = (doc: Document) => {
+    setSelectedDocId(doc.id || null);
+    setSelectedPublisher(doc.publisherId || '');
+    setModalMode('publisher');
+    setSelectedReviewer('');
     setNotes('');
     setMessage(null);
   };
@@ -117,15 +133,28 @@ export const EditorDashboard: React.FC = () => {
     }
   };
 
-  const handleForwardToPublisher = async (doc: Document) => {
-    if (!doc.id) return;
+  const handleAssignPublisher = async () => {
+    if (!selectedDocId || !selectedPublisher) {
+      setMessage('Choose a publisher before continuing.');
+      return;
+    }
+
+    const publisher = publishers.find((item) => item.id === selectedPublisher);
+    if (!publisher) {
+      setMessage('The selected publisher is no longer available.');
+      return;
+    }
+
     try {
       setActioning(true);
-      await documentService.forwardToPublisher(doc.id);
+      await documentService.assignPublisher(selectedDocId, publisher.id, publisher.full_name);
       await loadData();
+      setSelectedDocId(null);
+      setSelectedPublisher('');
+      setModalMode(null);
       setMessage(null);
     } catch (error: any) {
-      setMessage(error?.message || 'Unable to forward the manuscript.');
+      setMessage(error?.message || 'Unable to assign publisher.');
     } finally {
       setActioning(false);
     }
@@ -150,6 +179,7 @@ export const EditorDashboard: React.FC = () => {
             <div className="space-y-1.5 text-sm text-slate-500">
               <p className="flex items-center gap-2"><FileText className="h-4 w-4" /> {doc.contributorName}</p>
               {doc.reviewerName && <p className="flex items-center gap-2"><Users className="h-4 w-4" /> {doc.reviewerName}</p>}
+              {doc.publisherName && <p className="flex items-center gap-2"><Send className="h-4 w-4" /> {doc.publisherName}</p>}
               {doc.reviewComments && <p className="text-slate-600">Review: {doc.reviewComments}</p>}
               {doc.correctionNotes && <p className="text-amber-700">Revision note: {doc.correctionNotes}</p>}
             </div>
@@ -159,7 +189,10 @@ export const EditorDashboard: React.FC = () => {
                 <Button size="sm" variant="outline" onClick={() => { setSelectedDocId(doc.id || null); setNotes(doc.correctionNotes || ''); setMessage(null); handleReturnToAuthor(doc); }}><ArrowRightCircle className="h-4 w-4" /> Return to author</Button>
               )}
               {doc.status === 'approved' && (
-                <Button size="sm" variant="success" onClick={() => handleForwardToPublisher(doc)}><Send className="h-4 w-4" /> Forward to publisher</Button>
+                <Button size="sm" variant="success" onClick={() => openAssignPublisherModal(doc)}><Send className="h-4 w-4" /> Assign publisher</Button>
+              )}
+              {doc.status === 'ready_for_publishing' && (
+                <Button size="sm" variant="outline" onClick={() => openAssignPublisherModal(doc)}><Send className="h-4 w-4" /> Reassign publisher</Button>
               )}
             </div>
           </div>
@@ -211,15 +244,15 @@ export const EditorDashboard: React.FC = () => {
         </div>
       )}
 
-      {selectedDocId && (
+      {selectedDocId && modalMode === 'reviewer' && (
         <Modal
-          onClose={() => { setSelectedDocId(null); setSelectedReviewer(''); setNotes(''); setMessage(null); }}
+          onClose={() => { setSelectedDocId(null); setSelectedReviewer(''); setSelectedPublisher(''); setModalMode(null); setNotes(''); setMessage(null); }}
           title="Assign Reviewer"
           icon={<Users className="h-5 w-5 text-brand-700" />}
           size="md"
           footer={
             <>
-              <Button variant="outline" fullWidth onClick={() => { setSelectedDocId(null); setSelectedReviewer(''); setNotes(''); setMessage(null); }} disabled={actioning}>Cancel</Button>
+              <Button variant="outline" fullWidth onClick={() => { setSelectedDocId(null); setSelectedReviewer(''); setSelectedPublisher(''); setModalMode(null); setNotes(''); setMessage(null); }} disabled={actioning}>Cancel</Button>
               <Button fullWidth loading={actioning} onClick={handleAssignReviewer} disabled={actioning || !selectedReviewer}>Assign reviewer</Button>
             </>
           }
@@ -234,6 +267,32 @@ export const EditorDashboard: React.FC = () => {
             <FormField label="Editor note">
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder="Optional instruction for the reviewer" />
             </FormField>
+            {message && <Notice tone="danger">{message}</Notice>}
+          </div>
+        </Modal>
+      )}
+
+      {selectedDocId && modalMode === 'publisher' && (
+        <Modal
+          onClose={() => { setSelectedDocId(null); setSelectedReviewer(''); setSelectedPublisher(''); setModalMode(null); setNotes(''); setMessage(null); }}
+          title="Assign Publisher"
+          icon={<Send className="h-5 w-5 text-brand-700" />}
+          size="md"
+          footer={
+            <>
+              <Button variant="outline" fullWidth onClick={() => { setSelectedDocId(null); setSelectedReviewer(''); setSelectedPublisher(''); setModalMode(null); setNotes(''); setMessage(null); }} disabled={actioning}>Cancel</Button>
+              <Button fullWidth loading={actioning} onClick={handleAssignPublisher} disabled={actioning || !selectedPublisher}>Assign publisher</Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <FormField label="Publisher" required>
+              <Select value={selectedPublisher} onChange={(e) => setSelectedPublisher(e.target.value)}>
+                <option value="">Choose a publisher…</option>
+                {publishers.map((publisher) => <option key={publisher.id} value={publisher.id}>{publisher.full_name} ({publisher.email})</option>)}
+              </Select>
+            </FormField>
+            <Notice tone="info">Once assigned, the selected publisher will receive the manuscript in their queue and can publish it for readers.</Notice>
             {message && <Notice tone="danger">{message}</Notice>}
           </div>
         </Modal>

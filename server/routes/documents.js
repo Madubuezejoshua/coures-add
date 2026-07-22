@@ -32,6 +32,11 @@ router.get('/reviewers', requireRole('editor', 'admin'), ah(async (_req, res) =>
   res.json(rows);
 }));
 
+router.get('/publishers', requireRole('editor', 'admin'), ah(async (_req, res) => {
+  const { rows } = await query(`SELECT id, full_name, email FROM users WHERE role='publisher' AND status='active' ORDER BY full_name ASC`);
+  res.json(rows);
+}));
+
 router.get('/my-reviews', requireRole('reviewer'), ah(async (req, res) =>
   res.json(await list('SELECT * FROM documents WHERE reviewer_id=$1 ORDER BY updated_at DESC', [req.user.id]))));
 
