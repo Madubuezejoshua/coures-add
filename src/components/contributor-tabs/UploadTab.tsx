@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { documentService } from '../../services/documentService';
 import { fileUploadService } from '../../services/fileUploadService';
-import { Upload, FileText, File, AlertCircle, Loader, CheckCircle } from 'lucide-react';
+import { Upload, FileText, File, X } from 'lucide-react';
+import { Card, CardBody, FormField, Input, Textarea, Button, Notice } from '../ui';
 
 export const UploadTab: React.FC<{ onUploadComplete: () => void }> = ({ onUploadComplete }) => {
   const { user, displayName } = useAuth();
@@ -73,159 +74,138 @@ export const UploadTab: React.FC<{ onUploadComplete: () => void }> = ({ onUpload
         setSuccess(false);
         onUploadComplete();
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading document:', err);
-      setError('Failed to upload document');
+      setError(err?.message ? `Failed to upload document: ${err.message}` : 'Failed to upload document');
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-green-500/10 rounded-xl">
-            <Upload className="w-6 h-6 text-green-400" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-white">Upload Document</h2>
-            <p className="text-slate-400 text-sm">Submit your document for review</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Title *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Document title"
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-              disabled={uploading}
-              required
-            />
+    <div className="mx-auto max-w-4xl">
+      <Card>
+        <CardBody className="p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50">
+              <Upload className="h-6 w-6 text-brand-600" />
+            </span>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Upload Document</h2>
+              <p className="text-sm text-slate-500">Submit your document for review</p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of your document"
-              rows={2}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-              disabled={uploading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Content (Optional if file is uploaded)
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Enter your document content or upload a file below"
-              rows={8}
-              className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
-              disabled={uploading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">
-              Upload File (TXT, PDF, DOCX)
-            </label>
-            <div className="border-2 border-dashed border-slate-600/50 rounded-lg p-8 hover:border-green-500/50 transition-colors">
-              <input
-                type="file"
-                accept=".txt,.pdf,.docx"
-                onChange={handleFileChange}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <FormField label="Title" required>
+              <Input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Document title"
                 disabled={uploading}
-                className="hidden"
-                id="file-upload"
+                required
               />
-              <label
-                htmlFor="file-upload"
-                className="flex flex-col items-center justify-center cursor-pointer"
-              >
-                <div className="p-4 bg-slate-700/30 rounded-full mb-4">
-                  <FileText className="w-8 h-8 text-slate-400" />
-                </div>
-                <p className="text-slate-300 font-medium mb-1">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-slate-500 text-sm">TXT, PDF, or DOCX (max 10MB)</p>
+            </FormField>
+
+            <FormField label="Description">
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of your document"
+                rows={2}
+                disabled={uploading}
+              />
+            </FormField>
+
+            <FormField label="Content" hint="Optional if a file is uploaded">
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Enter your document content or upload a file below"
+                rows={8}
+                disabled={uploading}
+                className="font-mono text-sm"
+              />
+            </FormField>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                Upload File (TXT, PDF, DOCX)
               </label>
-            </div>
-
-            {file && (
-              <div className="mt-3 flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <File className="w-5 h-5 text-green-400" />
-                <div className="flex-1">
-                  <p className="text-green-300 font-medium">{file.name}</p>
-                  <p className="text-green-400 text-xs">
-                    {(file.size / 1024).toFixed(2)} KB
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFile(null)}
-                  className="text-green-400 hover:text-green-300"
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 p-8 transition-colors hover:border-brand-300">
+                <input
+                  type="file"
+                  accept=".txt,.pdf,.docx"
+                  onChange={handleFileChange}
                   disabled={uploading}
+                  className="hidden"
+                  id="file-upload"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="flex cursor-pointer flex-col items-center justify-center"
                 >
-                  Remove
-                </button>
+                  <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                    <FileText className="h-8 w-8 text-slate-400" />
+                  </span>
+                  <p className="mb-1 font-medium text-slate-700">Click to upload or drag and drop</p>
+                  <p className="text-sm text-slate-400">TXT, PDF, or DOCX (max 10MB)</p>
+                </label>
               </div>
-            )}
-          </div>
 
-          {error && (
-            <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-              <p className="text-red-300 text-sm">{error}</p>
+              {file && (
+                <div className="mt-3 flex items-center gap-3 rounded-xl bg-emerald-50 p-3 ring-1 ring-inset ring-emerald-200">
+                  <File className="h-5 w-5 text-emerald-600" />
+                  <div className="flex-1">
+                    <p className="font-medium text-emerald-800">{file.name}</p>
+                    <p className="text-xs text-emerald-600">{(file.size / 1024).toFixed(2)} KB</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFile(null)}
+                    disabled={uploading}
+                  >
+                    <X className="h-4 w-4" /> Remove
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
 
-          {success && (
-            <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-              <p className="text-green-300 text-sm">Document uploaded successfully!</p>
+            {error && <Notice tone="danger">{error}</Notice>}
+
+            {success && <Notice tone="success">Document uploaded successfully!</Notice>}
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                fullWidth
+                onClick={() => {
+                  setTitle('');
+                  setDescription('');
+                  setContent('');
+                  setFile(null);
+                  setError('');
+                }}
+                disabled={uploading}
+              >
+                Clear
+              </Button>
+              <Button
+                type="submit"
+                fullWidth
+                loading={uploading}
+                disabled={uploading || !title.trim() || (!content.trim() && !file)}
+              >
+                {uploading ? 'Uploading...' : 'Upload Document'}
+              </Button>
             </div>
-          )}
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setTitle('');
-                setDescription('');
-                setContent('');
-                setFile(null);
-                setError('');
-              }}
-              className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
-              disabled={uploading}
-            >
-              Clear
-            </button>
-            <button
-              type="submit"
-              disabled={uploading || (!title.trim() || (!content.trim() && !file))}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white rounded-lg font-medium transition-colors"
-            >
-              {uploading && <Loader className="w-5 h-5 animate-spin" />}
-              {uploading ? 'Uploading...' : 'Upload Document'}
-            </button>
-          </div>
-        </form>
-      </div>
+          </form>
+        </CardBody>
+      </Card>
     </div>
   );
 };
